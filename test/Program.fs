@@ -1,0 +1,5 @@
+﻿open System
+open Fuchu
+
+[<EntryPoint>]
+let main args = defaultMainThisAssembly args

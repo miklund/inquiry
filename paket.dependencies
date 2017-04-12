@@ -1,0 +1,14 @@
+source https://nuget.org/api/v2
+
+///
+/// TypeProvider dependencies
+///
+
+nuget fake
+nuget System.ValueTuple ~> 4.3.0
+
+github fsprojects/FSharp.TypeProviders.StarterPack src/AssemblyReader.fs
+github fsprojects/FSharp.TypeProviders.StarterPack src/AssemblyReaderReflection.fs
+github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fsi
+github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
+github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypesContext.fs
