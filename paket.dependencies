@@ -12,3 +12,11 @@ github fsprojects/FSharp.TypeProviders.StarterPack src/AssemblyReaderReflection.
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fsi
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypes.fs
 github fsprojects/FSharp.TypeProviders.StarterPack src/ProvidedTypesContext.fs
+
+///
+/// Testing
+///
+nuget Fuchu ~> 1.0.3.0
+nuget Unquote ~> 3.1.2
+nuget xunit ~> 2.2.0
+nuget xunit.runner.console ~> 2.2.0

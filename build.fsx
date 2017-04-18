@@ -1,5 +1,6 @@
 #r "./packages/FAKE/tools/FakeLib.dll"
 open Fake
+open Fake.Testing
 
 let buildDir = "./build/"
 let libDir = "./lib/"
@@ -7,26 +8,11 @@ let testDir = "./test/"
 let refDir = "./References/"
 let typeProvidersStarterPackDir = "./paket-files/fsprojects/FSharp.TypeProviders.StarterPack/src/"
 
+let xUnitToolPath = "./packages/xunit.runner.console/tools/xunit.console.exe"
+
 Target "Clean" (fun _ ->
     CleanDir buildDir
 )
-
-// Target "inQuiry.dll" (fun _ ->
-//     [ libDir + "AssemblyInfo.fs"
-//     ; typeProvidersStarterPackDir + "AssemblyReader.fs"
-//     ; typeProvidersStarterPackDir + "AssemblyReaderReflection.fs"
-//     ; typeProvidersStarterPackDir +   "ProvidedTypes.fsi"
-//     ; typeProvidersStarterPackDir +  "ProvidedTypes.fs"
-//     ; typeProvidersStarterPackDir +   "ProvidedTypesContext.fs"
-//     ; libDir + "Remoting.fs"
-//     ; libDir + "InRiverTypeProvider.fs"
-//     ] |> FscHelper.compile [
-//          FscHelper.FscParam.Fra
-//          FscHelper.Out (buildDir + "inQuiry.dll")
-//          FscHelper.References [refDir + "inRiver.Remoting.dll"; "System.Configuration.dll"]
-//          FscHelper.Target FscHelper.TargetType.Library
-//     ] |> function 0 -> () | c -> failwithf "F# compiler returned code: %i" c
-// )
 
 Target "inQuiry.dll" (fun _ ->
     !! (libDir + "lib.fsproj")
@@ -34,19 +20,20 @@ Target "inQuiry.dll" (fun _ ->
     |> Log "AppBuild-Output"
 )
 
-Target "inQuiry.Test.exe" (fun _ ->
+Target "inQuiry.Test.dll" (fun _ ->
     !! (testDir + "test.fsproj")
     |> MSBuildRelease buildDir "Build"
     |> Log "AppBuild-Output"
 )
 
 Target "RunTests" (fun _ ->
-    FuchuHelper.Fuchu [buildDir + "inQuiry.Test.exe"]
+    !! (buildDir @@ "inQuiry.Test.dll")
+      |> xUnit (fun p -> { p with ToolPath = xUnitToolPath})
 )
 
 "Clean"
    ==> "inQuiry.dll"
-   ==> "inQuiry.Test.exe"
+   ==> "inQuiry.Test.dll"
    ==> "RunTests"
 
 RunTargetOrDefault "RunTests"

@@ -23,6 +23,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+build/
 
 # Visual Studio 2015 cache/options directory
 .vs/
@@ -121,6 +122,8 @@ _TeamCity*
 _NCrunch_*
 .*crunch*.local.xml
 nCrunchTemp_*
+*.ncrunchsolution
+*.ncrunchproject
 
 # MightyMoose
 *.mm.*

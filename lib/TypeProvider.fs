@@ -8,7 +8,17 @@ open ProviderImplementation
 open ProviderImplementation.ProvidedTypes
 open inQuiry
 open inRiver.Remoting
-   
+
+// turn a value expression to an option value expression
+let optionPropertyExpression<'a when 'a : equality> (valueExpression : Expr<'a>) =
+    <@@
+        let value = (%valueExpression : 'a)
+        if value = Unchecked.defaultof<'a> then
+            None
+        else
+            Some(value)
+        @@>
+
 // this is the entity value that is returned from the type provider
 type Entity (entityType, entity : Objects.Entity)  =
 
@@ -18,16 +28,18 @@ type Entity (entityType, entity : Objects.Entity)  =
     // called with entity, make sure we extract entityType
     new(entity : Objects.Entity) = Entity(entity.EntityType, entity)
 
-    member this.PropertyValue fieldTypeId = 
+    member this.PropertyValue fieldTypeId  = 
         match entity.GetField(fieldTypeId) with
+        // expected a field, but it is not there
         | null -> failwith (sprintf "Field %s was not set on entity %s:%d" fieldTypeId entityType.Id entity.Id)
-        | value -> value.Data
+        | field -> field.Data
 
+    member this.EntityType = entityType
+    
     // default properties
     member this.CreatedBy
         with get () = entity.CreatedBy
         and set (value) = entity.CreatedBy <- value
-
    
 type EntityTypeFactory (entityType : Objects.EntityType)  =
 
@@ -46,16 +58,60 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
             Entity(%%(args.[0]) : Objects.Entity)
             @@>
 
+    let stringValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@
+            // get the entity
+            let entity = (%%(args.[0]) : Entity)
+            // convert the value to string
+            (entity.PropertyValue fieldTypeID) :?> string
+            @>
+            
+    let localeStringValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@
+            // get the entity
+            let entity = (%%(args.[0]) : Entity)
+            // convert the value to string
+            (entity.PropertyValue fieldTypeID) :?> Objects.LocaleString
+            @>
+
+    let integerValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@
+            // get the entity
+            let entity = (%%(args.[0]) : Entity)
+            // convert the value to string
+            (entity.PropertyValue fieldTypeID) :?> int
+            @>
+
+    let dateTimeValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@
+            // get the entity
+            let entity = (%%(args.[0]) : Entity)
+            // convert the value to string
+            (entity.PropertyValue fieldTypeID) :?> System.DateTime
+            @>
+
+    let objValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@
+            // get the entity
+            let entity = (%%(args.[0]) : Entity)
+            // convert the value to string
+            (entity.PropertyValue fieldTypeID)
+            @>
+
     let fieldToProperty (fieldType : Objects.FieldType) =
-        let fieldTypeID = fieldType.Id 
-        let propertyType = 
-            match fieldType.DataType with
-            | "String" -> typeof<string>
-            | "LocaleString" -> typeof<Objects.LocaleString>
-            | "DateTime" -> typeof<System.DateTime>
-            | "Integer" -> typeof<int>
-            | _ -> typeof<obj>
-        ProvidedProperty(fieldTypeID, propertyType, [], GetterCode = fun args -> <@@ (%%(args.[0]) : Entity).PropertyValue fieldTypeID @@>)    
+        let fieldTypeID = fieldType.Id
+        // match field DataType to a .NET type
+        match fieldType.DataType with
+        | "String" -> ProvidedProperty(fieldTypeID, typeof<Option<string>>, [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
+        | "LocaleString" -> ProvidedProperty(fieldTypeID, typeof<Option<Objects.LocaleString>>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> optionPropertyExpression))
+        | "DateTime" -> ProvidedProperty(fieldTypeID, typeof<Option<System.DateTime>>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
+        | "Integer" -> ProvidedProperty(fieldTypeID, typeof<Option<int>>, [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
+        | _ -> ProvidedProperty(fieldTypeID, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type
@@ -97,5 +153,3 @@ type InRiverProvider(config : TypeProviderConfig) as this =
     
 [<assembly:TypeProviderAssembly>] 
 do()
-
-    
