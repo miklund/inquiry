@@ -35,6 +35,8 @@ type Entity (entityType, entity : Objects.Entity)  =
         | field -> field.Data
 
     member this.EntityType = entityType
+
+    member this.Entity = entity
     
     // default properties
     member this.CreatedBy
@@ -43,13 +45,120 @@ type Entity (entityType, entity : Objects.Entity)  =
    
 type EntityTypeFactory (entityType : Objects.EntityType)  =
 
-    let constructorExpression entityTypeID =
-        fun args ->
+    // map inRiver DataType to .NET types
+    let mapDataType = function
+    | "String" -> typeof<string>
+    | "LocaleString" -> typeof<Objects.LocaleString>
+    | "DateTime" -> typeof<System.DateTime>
+    | "Integer" -> typeof<int>
+    | "Boolean" -> typeof<bool>
+    | _ -> typeof<obj>
+    
+    // filter all FieldTypes that are mandatory
+    let mandatoryFieldTypes =
+        entityType.FieldTypes
+        // filter out only mandatory fields
+        |> Seq.filter (fun fieldType -> fieldType.Mandatory)
+        // make sure they're sorted by index
+        |> Seq.sortBy (fun fieldType -> fieldType.Index)
+        |> Seq.toList
+
+    let fieldTypeToProvidedParameter =
+        // map field type to provided parameter
+        List.map (fun (fieldType : Objects.FieldType) -> ProvidedParameter(fieldType.Id, mapDataType(fieldType.DataType)))
+
+    let mandatoryProvidedParameters =
+        fieldTypeToProvidedParameter mandatoryFieldTypes
+
+    // empty constructor for entities
+    let constructorExpression0 entityTypeID =
+        fun (args : Expr list) ->
         <@@
             // get the entity type, this should be cached
             let entityType = inRiverService().GetEntityTypeById(entityTypeID)
             // create a new instance of the entity
             Entity(Objects.Entity.CreateEntity(entityType))
+            @@>
+
+    // constructors with 1 arguments
+    let constructorExpression1 entityTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity type, this should be cached
+            let entityType = inRiverService().GetEntityTypeById(entityTypeID)
+            // create a new instance of the entity
+            let entity = Entity(Objects.Entity.CreateEntity(entityType))
+            
+            // this pattern is incomplete because we know there will be three arguments always
+            let [ft0] =
+                entityType.FieldTypes
+                |> Seq.filter (fun fieldType -> fieldType.Mandatory)
+                |> Seq.sortBy (fun fieldType -> fieldType.Index)
+                |> Seq.toList
+            
+            match ft0.DataType with
+            | "String" -> entity.Entity.GetField(ft0.Id).Data <- (%%args.[0] : string)
+            | dt -> failwith (sprintf "constructor1 cannot handle data type %s yet" dt)
+
+            entity
+            @@>
+
+    // constructors with 2 arguments
+    let constructorExpression2 entityTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity type, this should be cached
+            let entityType = inRiverService().GetEntityTypeById(entityTypeID)
+            // create a new instance of the entity
+            let entity = Entity(Objects.Entity.CreateEntity(entityType))
+            
+            // this pattern is incomplete because we know there will be three arguments always
+            let [ft0; ft1] =
+                entityType.FieldTypes
+                |> Seq.filter (fun fieldType -> fieldType.Mandatory)
+                |> Seq.sortBy (fun fieldType -> fieldType.Index)
+                |> Seq.toList
+            
+            match ft0.DataType with
+            | "String" -> entity.Entity.GetField(ft0.Id).Data <- (%%args.[0] : string)
+            | dt -> failwith (sprintf "constructor1 cannot handle data type %s yet" dt)
+
+            match ft1.DataType with
+            | "CVL" -> entity.Entity.GetField(ft1.Id).Data <- (%%args.[1] : obj)
+            | dt -> failwith (sprintf "constructor1 cannot handle data type %s yet" dt)
+
+            entity
+            @@>
+
+    // constructor with 3 arguments
+    let constructorExpression3 entityTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity type, this should be cached
+            let entityType = inRiverService().GetEntityTypeById(entityTypeID)
+            // create a new instance of the entity
+            let entity = Entity(Objects.Entity.CreateEntity(entityType))
+            
+            // this pattern is incomplete because we know there will be three arguments always
+            let [ft0; ft1; ft2] =
+                entityType.FieldTypes
+                |> Seq.filter (fun fieldType -> fieldType.Mandatory)
+                |> Seq.sortBy (fun fieldType -> fieldType.Index)
+                |> Seq.toList
+            
+            match ft0.DataType with
+            | "String" -> entity.Entity.GetField(ft0.Id).Data <- (%%args.[0] : string)
+            | dt -> failwith (sprintf "constructor3 cannot handle data type %s yet" dt)
+
+            match ft1.DataType with
+            | "CVL" -> entity.Entity.GetField(ft1.Id).Data <- (%%args.[1] : obj)
+            | dt -> failwith (sprintf "constructor3 cannot handle data type %s yet" dt)
+
+            match ft2.DataType with
+            | "Boolean" -> entity.Entity.GetField(ft2.Id).Data <- (%%args.[2] : bool)
+            | dt -> failwith (sprintf "constructor3 cannot handle data type %s yet" dt)
+
+            entity
             @@>
     
     let createExpression =
@@ -72,7 +181,7 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         <@
             // get the entity
             let entity = (%%(args.[0]) : Entity)
-            // convert the value to string
+            // convert the value to LocaleString
             (entity.PropertyValue fieldTypeID) :?> Objects.LocaleString
             @>
 
@@ -81,7 +190,7 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         <@
             // get the entity
             let entity = (%%(args.[0]) : Entity)
-            // convert the value to string
+            // convert the value to int
             (entity.PropertyValue fieldTypeID) :?> int
             @>
 
@@ -90,8 +199,17 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         <@
             // get the entity
             let entity = (%%(args.[0]) : Entity)
-            // convert the value to string
+            // convert the value to DateTime
             (entity.PropertyValue fieldTypeID) :?> System.DateTime
+            @>
+
+    let booleanValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // convert the value to bool
+            (entity.PropertyValue fieldTypeID) :?> bool
             @>
 
     let objValueExpression fieldTypeID =
@@ -111,6 +229,7 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         | "LocaleString" -> ProvidedProperty(fieldTypeID, typeof<Option<Objects.LocaleString>>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> optionPropertyExpression))
         | "DateTime" -> ProvidedProperty(fieldTypeID, typeof<Option<System.DateTime>>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
         | "Integer" -> ProvidedProperty(fieldTypeID, typeof<Option<int>>, [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
+        | "Boolean" -> ProvidedProperty(fieldTypeID, typeof<Option<bool>>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
         | _ -> ProvidedProperty(fieldTypeID, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
 
     member this.createProvidedTypeDefinition assembly ns =
@@ -119,7 +238,14 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         typeDefinition.HideObjectMethods <- true;
 
         // create a constructor
-        let ctor = ProvidedConstructor([], InvokeCode = constructorExpression entityType.Id)
+        let ctor = 
+            match mandatoryProvidedParameters.Length with
+            | 0 -> ProvidedConstructor([], InvokeCode = constructorExpression0 entityType.Id)
+            | 1 -> ProvidedConstructor(mandatoryProvidedParameters, InvokeCode = constructorExpression1 entityType.Id)
+            | 2 -> ProvidedConstructor(mandatoryProvidedParameters, InvokeCode = constructorExpression2 entityType.Id)
+            | 3 -> ProvidedConstructor(mandatoryProvidedParameters, InvokeCode = constructorExpression3 entityType.Id)
+            // default to an empty constructor, this should probably fail instead
+            | _ -> ProvidedConstructor([], InvokeCode = constructorExpression0 entityType.Id)
         typeDefinition.AddMember ctor
 
         // creation method
