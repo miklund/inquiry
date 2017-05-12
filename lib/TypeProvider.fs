@@ -52,6 +52,7 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
     | "DateTime" -> typeof<System.DateTime>
     | "Integer" -> typeof<int>
     | "Boolean" -> typeof<bool>
+    // TODO Throw exception here for unknown types
     | _ -> typeof<obj>
     
     // filter all FieldTypes that are mandatory
@@ -70,96 +71,60 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
     let mandatoryProvidedParameters =
         fieldTypeToProvidedParameter mandatoryFieldTypes
 
-    // empty constructor for entities
-    let constructorExpression0 entityTypeID =
+    // create an invoke expression for generated constructors
+    let constructorExpression entityTypeID (fieldTypes : Objects.FieldType list) =
         fun (args : Expr list) ->
-        <@@
-            // get the entity type, this should be cached
-            let entityType = inRiverService().GetEntityTypeById(entityTypeID)
-            // create a new instance of the entity
-            Entity(Objects.Entity.CreateEntity(entityType))
-            @@>
-
-    // constructors with 1 arguments
-    let constructorExpression1 entityTypeID =
-        fun (args : Expr list) ->
-        <@@
-            // get the entity type, this should be cached
-            let entityType = inRiverService().GetEntityTypeById(entityTypeID)
-            // create a new instance of the entity
-            let entity = Entity(Objects.Entity.CreateEntity(entityType))
-            
-            // this pattern is incomplete because we know there will be three arguments always
-            let [ft0] =
-                entityType.FieldTypes
-                |> Seq.filter (fun fieldType -> fieldType.Mandatory)
-                |> Seq.sortBy (fun fieldType -> fieldType.Index)
-                |> Seq.toList
-            
-            match ft0.DataType with
-            | "String" -> entity.Entity.GetField(ft0.Id).Data <- (%%args.[0] : string)
-            | dt -> failwith (sprintf "constructor1 cannot handle data type %s yet" dt)
-
-            entity
-            @@>
-
-    // constructors with 2 arguments
-    let constructorExpression2 entityTypeID =
-        fun (args : Expr list) ->
-        <@@
-            // get the entity type, this should be cached
-            let entityType = inRiverService().GetEntityTypeById(entityTypeID)
-            // create a new instance of the entity
-            let entity = Entity(Objects.Entity.CreateEntity(entityType))
-            
-            // this pattern is incomplete because we know there will be three arguments always
-            let [ft0; ft1] =
-                entityType.FieldTypes
-                |> Seq.filter (fun fieldType -> fieldType.Mandatory)
-                |> Seq.sortBy (fun fieldType -> fieldType.Index)
-                |> Seq.toList
-            
-            match ft0.DataType with
-            | "String" -> entity.Entity.GetField(ft0.Id).Data <- (%%args.[0] : string)
-            | dt -> failwith (sprintf "constructor1 cannot handle data type %s yet" dt)
-
-            match ft1.DataType with
-            | "CVL" -> entity.Entity.GetField(ft1.Id).Data <- (%%args.[1] : obj)
-            | dt -> failwith (sprintf "constructor1 cannot handle data type %s yet" dt)
-
-            entity
-            @@>
-
-    // constructor with 3 arguments
-    let constructorExpression3 entityTypeID =
-        fun (args : Expr list) ->
-        <@@
-            // get the entity type, this should be cached
-            let entityType = inRiverService().GetEntityTypeById(entityTypeID)
-            // create a new instance of the entity
-            let entity = Entity(Objects.Entity.CreateEntity(entityType))
-            
-            // this pattern is incomplete because we know there will be three arguments always
-            let [ft0; ft1; ft2] =
-                entityType.FieldTypes
-                |> Seq.filter (fun fieldType -> fieldType.Mandatory)
-                |> Seq.sortBy (fun fieldType -> fieldType.Index)
-                |> Seq.toList
-            
-            match ft0.DataType with
-            | "String" -> entity.Entity.GetField(ft0.Id).Data <- (%%args.[0] : string)
-            | dt -> failwith (sprintf "constructor3 cannot handle data type %s yet" dt)
-
-            match ft1.DataType with
-            | "CVL" -> entity.Entity.GetField(ft1.Id).Data <- (%%args.[1] : obj)
-            | dt -> failwith (sprintf "constructor3 cannot handle data type %s yet" dt)
-
-            match ft2.DataType with
-            | "Boolean" -> entity.Entity.GetField(ft2.Id).Data <- (%%args.[2] : bool)
-            | dt -> failwith (sprintf "constructor3 cannot handle data type %s yet" dt)
-
-            entity
-            @@>
+            // create the entity
+            let emptyConstructorExpr =
+                <@
+                    // get the entity type, this should be cached
+                    let entityType = inRiverService().GetEntityTypeById(entityTypeID)
+                    // create a new instance of the entity
+                    Entity(Objects.Entity.CreateEntity(entityType))
+                    @>
+            let _constructorExpression =
+                args
+                |> List.zip fieldTypes
+                |> List.fold (fun entityExpr (fieldType, argExpr) ->
+                    let fieldTypeId = fieldType.Id
+                    match fieldType.DataType with
+                    | "String" ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : string)
+                            entity
+                            @>
+                    | "Integer" ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : string)
+                            entity
+                            @>
+                    | "Boolean" ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : bool)
+                            entity
+                            @>
+                    | "Double" ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : bool)
+                            entity
+                            @>
+                    | "DateTime" ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : DateTime)
+                            entity
+                            @>
+                    // NOTE one does not simply implement CVL lists
+                    | "CVL" | "LocaleString" | "XML" | "File" -> 
+                        <@ (% entityExpr : Entity) @>
+                    | dataType -> 
+                        failwith (sprintf "While generating constructor: In field %s, not yet supporting field type %s" fieldTypeId dataType)
+                    ) emptyConstructorExpr
+            <@@ %_constructorExpression @@>
     
     let createExpression =
         fun (args : Expr list) ->
@@ -230,6 +195,7 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         | "DateTime" -> ProvidedProperty(fieldTypeID, typeof<Option<System.DateTime>>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
         | "Integer" -> ProvidedProperty(fieldTypeID, typeof<Option<int>>, [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
         | "Boolean" -> ProvidedProperty(fieldTypeID, typeof<Option<bool>>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
+        // TODO Throw exception here when all the types have been handled
         | _ -> ProvidedProperty(fieldTypeID, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
 
     member this.createProvidedTypeDefinition assembly ns =
@@ -238,14 +204,7 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         typeDefinition.HideObjectMethods <- true;
 
         // create a constructor
-        let ctor = 
-            match mandatoryProvidedParameters.Length with
-            | 0 -> ProvidedConstructor([], InvokeCode = constructorExpression0 entityType.Id)
-            | 1 -> ProvidedConstructor(mandatoryProvidedParameters, InvokeCode = constructorExpression1 entityType.Id)
-            | 2 -> ProvidedConstructor(mandatoryProvidedParameters, InvokeCode = constructorExpression2 entityType.Id)
-            | 3 -> ProvidedConstructor(mandatoryProvidedParameters, InvokeCode = constructorExpression3 entityType.Id)
-            // default to an empty constructor, this should probably fail instead
-            | _ -> ProvidedConstructor([], InvokeCode = constructorExpression0 entityType.Id)
+        let ctor = ProvidedConstructor(mandatoryProvidedParameters, InvokeCode = constructorExpression entityType.Id mandatoryFieldTypes)
         typeDefinition.AddMember ctor
 
         // creation method

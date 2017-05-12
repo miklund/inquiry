@@ -15,3 +15,5 @@ let ``Should be able to create a new instance of Campaign and set the name`` () 
     let instance = Campaign(name, null)
     // assert
     test <@ instance.CampaignName = Some name @>
+
+// need a test here that checks the CVL
