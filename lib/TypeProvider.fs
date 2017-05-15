@@ -9,6 +9,25 @@ open ProviderImplementation.ProvidedTypes
 open inQuiry
 open inRiver.Remoting
 
+// remove entity ID from field name
+let fieldNamingConvention entityID (fieldName : string) =
+    // try get configuration value if this naming convention is active
+    let foundConfigValue, value = bool.TryParse(Configuration.ConfigurationManager.AppSettings.["inQuiry:fieldNamingConvention"])
+    // apply fieldNamingConvention if configuration not found or unparsable, otherwise use configuration value
+    if (not foundConfigValue) || value then
+        fieldName.Replace(entityID, String.Empty)
+    else
+        fieldName
+
+// make first letter lower case
+// > camelCase "ProductName"
+// -> "productName"
+let toCamelCase = function
+| s when s = null -> null
+| s when s = String.Empty -> s
+| s when s.Length = 1 -> s.ToLower()
+| s -> System.Char.ToLower(s.[0]).ToString() + s.Substring(1)
+
 // turn a value expression to an option value expression
 let optionPropertyExpression<'a when 'a : equality> (valueExpression : Expr<'a>) =
     <@@
@@ -66,7 +85,9 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
 
     let fieldTypeToProvidedParameter =
         // map field type to provided parameter
-        List.map (fun (fieldType : Objects.FieldType) -> ProvidedParameter(fieldType.Id, mapDataType(fieldType.DataType)))
+        List.map (fun (fieldType : Objects.FieldType) -> 
+            let providedParameterNamingConvention = (fieldNamingConvention fieldType.EntityTypeId) >> toCamelCase
+            ProvidedParameter((providedParameterNamingConvention fieldType.Id), mapDataType(fieldType.DataType)))
 
     let mandatoryProvidedParameters =
         fieldTypeToProvidedParameter mandatoryFieldTypes

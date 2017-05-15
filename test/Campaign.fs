@@ -16,4 +16,10 @@ let ``Should be able to create a new instance of Campaign and set the name`` () 
     // assert
     test <@ instance.CampaignName = Some name @>
 
-// need a test here that checks the CVL
+[<Fact>]
+let ``Constructor parameters should apply naming conventions removing the word campaign and use camel case`` () =
+    // act
+    let instance = Campaign(name = "Spring sale!", ``type`` = null)
+    // assert
+    test <@ instance.GetType() = typeof<Campaign> @>
+    

@@ -29,3 +29,10 @@ let ``Mandatory parameter ProductApproved injected in constructor should be set 
     let instance = Product("ABC123", null, productApproved)
     // assert
     test <@ instance.ProductApproved = Some productApproved @>
+
+[<Fact>]
+let ``Constructor parameters should apply naming conventions removing the word product and use camel case`` () =
+    // act
+    let instance = Product(number = "ABC123", status = null, approved = true)
+    // assert
+    test <@ instance.GetType() = typeof<Product> @>
