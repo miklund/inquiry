@@ -84,9 +84,26 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         |> Seq.toList
 
     let fieldTypeToProvidedParameter =
+        // a constructor parameter name should remove the leading entityTypeID and make camel case
+        let providedParameterNamingConvention fieldTypeID = 
+            // the function that creates the identifier
+            let providedParameterNamingConvention_ id = (fieldNamingConvention entityType.Id id) |> toCamelCase
+            // the expected identifier
+            let result = providedParameterNamingConvention_ fieldTypeID
+            // another field will become the same parameter name
+            let hasConflictingField = 
+                entityType.FieldTypes 
+                |> Seq.filter (fun ft -> fieldTypeID <> ft.Id)
+                |> Seq.exists (fun ft -> result = (providedParameterNamingConvention_ ft.Id))
+            // return
+            if hasConflictingField then
+                // there is a conflict, return the original, but to camel case
+                fieldTypeID |> toCamelCase
+            else
+                result
+
         // map field type to provided parameter
         List.map (fun (fieldType : Objects.FieldType) -> 
-            let providedParameterNamingConvention = (fieldNamingConvention fieldType.EntityTypeId) >> toCamelCase
             ProvidedParameter((providedParameterNamingConvention fieldType.Id), mapDataType(fieldType.DataType)))
 
     let mandatoryProvidedParameters =
@@ -207,17 +224,38 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
             (entity.PropertyValue fieldTypeID)
             @>
 
+    // try to create a property name that does not conflict with anything else on the entity
+    // Example: A Product entity with the field ProductCreatedBy would conflict with the Entity.CreatedBy property
+    // Example: A Product entity with the field ProductAuthor and the field Author would conflict with each other
+    let createPropertyName fieldTypeID =
+        let result = fieldNamingConvention entityType.Id fieldTypeID
+        // there is a property already on the Entity type matching this name
+        let hasFixedProperty = typeof<Entity>.GetProperty(result) <> null
+        // another field will become the same property
+        let hasConflictingField = 
+            entityType.FieldTypes 
+            |> Seq.filter (fun ft -> fieldTypeID <> ft.Id)
+            |> Seq.exists (fun ft -> result = (fieldNamingConvention ft.EntityTypeId ft.Id))
+        
+        if hasFixedProperty || hasConflictingField then
+            // there is a conflict, return the original property name
+            fieldTypeID
+        else
+            // there isn't a conflict, return the convention property
+            result
+
     let fieldToProperty (fieldType : Objects.FieldType) =
         let fieldTypeID = fieldType.Id
+        let propertyName = createPropertyName fieldTypeID
         // match field DataType to a .NET type
         match fieldType.DataType with
-        | "String" -> ProvidedProperty(fieldTypeID, typeof<Option<string>>, [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
-        | "LocaleString" -> ProvidedProperty(fieldTypeID, typeof<Option<Objects.LocaleString>>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> optionPropertyExpression))
-        | "DateTime" -> ProvidedProperty(fieldTypeID, typeof<Option<System.DateTime>>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
-        | "Integer" -> ProvidedProperty(fieldTypeID, typeof<Option<int>>, [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
-        | "Boolean" -> ProvidedProperty(fieldTypeID, typeof<Option<bool>>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
+        | "String" -> ProvidedProperty(propertyName, typeof<Option<string>>, [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
+        | "LocaleString" -> ProvidedProperty(propertyName, typeof<Option<Objects.LocaleString>>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> optionPropertyExpression))
+        | "DateTime" -> ProvidedProperty(propertyName, typeof<Option<System.DateTime>>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
+        | "Integer" -> ProvidedProperty(propertyName, typeof<Option<int>>, [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
+        | "Boolean" -> ProvidedProperty(propertyName, typeof<Option<bool>>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
         // TODO Throw exception here when all the types have been handled
-        | _ -> ProvidedProperty(fieldTypeID, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
+        | _ -> ProvidedProperty(propertyName, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type

@@ -19,7 +19,7 @@ let ``Mandatory parameter ProductNumber injected in constructor should be set to
     // act
     let instance = Product("ABC123", null, false)
     // assert
-    test <@ instance.ProductNumber = Some "ABC123" @>
+    test <@ instance.Number = Some "ABC123" @>
 
 [<Fact>]
 let ``Mandatory parameter ProductApproved injected in constructor should be set to entity`` () =
@@ -28,7 +28,7 @@ let ``Mandatory parameter ProductApproved injected in constructor should be set 
     // act
     let instance = Product("ABC123", null, productApproved)
     // assert
-    test <@ instance.ProductApproved = Some productApproved @>
+    test <@ instance.Approved = Some productApproved @>
 
 [<Fact>]
 let ``Constructor parameters should apply naming conventions removing the word product and use camel case`` () =

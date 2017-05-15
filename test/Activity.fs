@@ -35,7 +35,7 @@ let ``Should get activity start date (System.DateTime) through generated propert
     // act
     let instance = Activity.Create(entity)
     // assert
-    test <@ instance.ActivityStartDate = Some testData @>
+    test <@ instance.StartDate = Some testData @>
 
 
 [<Fact>]
@@ -46,7 +46,7 @@ let ``Should get value None when value of generated property ActivityDescription
     // act
     let instance = Activity.Create(entity)
     // assert
-    test <@ instance.ActivityDescription = None @>
+    test <@ instance.Description = None @>
 
 [<Fact>]
 let ``Should get Some(value) when value of generated property ActivityDescription is not null`` () =
@@ -58,7 +58,7 @@ let ``Should get Some(value) when value of generated property ActivityDescriptio
     // act
     let instance = Activity.Create(entity)
     // assert
-    test <@ instance.ActivityDescription = Some testData @>
+    test <@ instance.Description = Some testData @>
 
 [<Fact>]
 let ``Should get activity length (System.Int32) through generated property ActivityLength`` () =
@@ -70,4 +70,4 @@ let ``Should get activity length (System.Int32) through generated property Activ
     // act
     let instance = Activity.Create(entity)
     // assert
-    test <@ instance.ActivityLength = Some testData @>
+    test <@ instance.Length = Some testData @>

@@ -70,6 +70,7 @@
     <Compile Include="Bundle.fs" />
     <Compile Include="Campaign.fs" />
     <Compile Include="Product.fs" />
+    <Compile Include="TestEntity.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>
