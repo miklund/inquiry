@@ -26,6 +26,15 @@ newProduct.Save() |> ignore
 ```
 
 * Able to change values by immutable type syntax
+* Implement FieldSets
+* Implement Categories
+* Implement Read-Only properties
+* Implement Display Name
+* Implement Display Description
+* Implement MultiValue
+* Implement Unique
+* Implement Hidden
+* Implement Exclude from Default View
 
 v0.1
 
@@ -37,9 +46,8 @@ ignore <| Product.SaveOrUpdate(product)
 ```
 
 * Mandatory properties should not be Option<> type
-* Mandatory properties with default value should not be required in constructor (optional?)
-* SaveOrUpdate method on entity class
-* Readme.md with example of how inQuiry simplify things
+* SaveOrUpdate method on entity class as static
+* Implement all default properties on Entity type
 * Implement data type CVL lists
 * Implement data type LocaleString
 * Implement data type XML

@@ -81,6 +81,8 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         |> Seq.filter (fun fieldType -> fieldType.Mandatory)
         // make sure they're sorted by index
         |> Seq.sortBy (fun fieldType -> fieldType.Index)
+        // change their orders so mandatory without default value comes first
+        |> Seq.sortBy (fun fieldType -> if fieldType.DefaultValue = null then 1 else 2)
         |> Seq.toList
 
     let fieldTypeToProvidedParameter =
@@ -103,8 +105,14 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
                 result
 
         // map field type to provided parameter
-        List.map (fun (fieldType : Objects.FieldType) -> 
-            ProvidedParameter((providedParameterNamingConvention fieldType.Id), mapDataType(fieldType.DataType)))
+        List.map (fun (fieldType : Objects.FieldType) ->
+            // these fields are all mandatory
+            if fieldType.DefaultValue = null then
+                // so they are required as constructor parameters
+                ProvidedParameter((providedParameterNamingConvention fieldType.Id), mapDataType(fieldType.DataType))
+            else
+                // unless there is a default value, then the constructor parameter can be optional
+                ProvidedParameter((providedParameterNamingConvention fieldType.Id), mapDataType(fieldType.DataType), optionalValue = fieldType.DefaultValue))
 
     let mandatoryProvidedParameters =
         fieldTypeToProvidedParameter mandatoryFieldTypes

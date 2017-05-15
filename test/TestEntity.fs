@@ -32,3 +32,21 @@ let ``When field TestCreatedBy is conflicting with Entity property CreatedBy the
     let instance = Test("", "")
     // assert
     test <@ instance.TestCreatedBy = None @>
+
+[<Fact>]
+let ``When field type is mandatory but a default value has been supplied then constructor parameter is optional and default value is set`` () =
+    // arrange
+    let defaultValue = "Hello World!"
+    // act
+    let instance = Test("")
+    // assert
+    test <@ instance.TestName = Some defaultValue @>
+
+[<Fact>]
+let ``When field type is mandatory and has a default value but is supplied with another value from constructor then that constructor value should be used`` () =
+    // arrange
+    let testNameValue = "Another World!"
+    // act
+    let instance = Test("", testName = testNameValue)
+    // assert
+    test <@ instance.TestName = Some testNameValue @>
