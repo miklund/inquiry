@@ -14,7 +14,7 @@ let ``Should be able to create a new instance of Campaign and set the name`` () 
     // act
     let instance = Campaign(name, null)
     // assert
-    test <@ instance.Name = Some name @>
+    test <@ instance.Name = name @>
 
 [<Fact>]
 let ``Constructor parameters should apply naming conventions removing the word campaign and use camel case`` () =

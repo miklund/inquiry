@@ -23,8 +23,8 @@ let ``When field TestName is conflicting with field Name then no conventions sho
     // act
     let instance = Test(testName = "Hello", name = "World")
     // assert
-    test <@ instance.TestName = Some "Hello" @>
-    test <@ instance.Name = Some "World" @>
+    test <@ instance.TestName = "Hello" @>
+    test <@ instance.Name = "World" @>
 
 [<Fact>]
 let ``When field TestCreatedBy is conflicting with Entity property CreatedBy then no conventions should apply to property`` () =
@@ -40,7 +40,7 @@ let ``When field type is mandatory but a default value has been supplied then co
     // act
     let instance = Test("")
     // assert
-    test <@ instance.TestName = Some defaultValue @>
+    test <@ instance.TestName = defaultValue @>
 
 [<Fact>]
 let ``When field type is mandatory and has a default value but is supplied with another value from constructor then that constructor value should be used`` () =
@@ -49,4 +49,16 @@ let ``When field type is mandatory and has a default value but is supplied with 
     // act
     let instance = Test("", testName = testNameValue)
     // assert
-    test <@ instance.TestName = Some testNameValue @>
+    test <@ instance.TestName = testNameValue @>
+
+[<Fact>]
+let ``Setting a non mandatory field TestDescription will set Some value at property TestDescription`` () =
+    // arrange
+    let testData = "This is description of this Test entity"
+    let entityType = inRiverService().GetEntityTypeById("Test")
+    let entity = Objects.Entity.CreateEntity(entityType)
+    entity.GetField("TestDescription").Data <- testData
+    // act
+    let instance = Test.Create(entity)
+    // assert
+    test <@ instance.Description = Some testData @>

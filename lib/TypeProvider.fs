@@ -38,6 +38,9 @@ let optionPropertyExpression<'a when 'a : equality> (valueExpression : Expr<'a>)
             Some(value)
         @@>
 
+let uncheckedExpression (valueExpression : Expr<'a>) =
+    <@@ (% valueExpression : 'a ) @@>
+
 // this is the entity value that is returned from the type provider
 type Entity (entityType, entity : Objects.Entity)  =
 
@@ -255,15 +258,28 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
     let fieldToProperty (fieldType : Objects.FieldType) =
         let fieldTypeID = fieldType.Id
         let propertyName = createPropertyName fieldTypeID
-        // match field DataType to a .NET type
-        match fieldType.DataType with
-        | "String" -> ProvidedProperty(propertyName, typeof<Option<string>>, [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
-        | "LocaleString" -> ProvidedProperty(propertyName, typeof<Option<Objects.LocaleString>>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> optionPropertyExpression))
-        | "DateTime" -> ProvidedProperty(propertyName, typeof<Option<System.DateTime>>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
-        | "Integer" -> ProvidedProperty(propertyName, typeof<Option<int>>, [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
-        | "Boolean" -> ProvidedProperty(propertyName, typeof<Option<bool>>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
-        // TODO Throw exception here when all the types have been handled
-        | _ -> ProvidedProperty(propertyName, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
+
+        // TODO Refactor this because it is ugly as F#ck
+        if fieldType.Mandatory then
+            // mandatory property
+            match fieldType.DataType with
+            | "String" -> ProvidedProperty(propertyName, typeof<string>, [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
+            | "LocaleString" -> ProvidedProperty(propertyName, typeof<Objects.LocaleString>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
+            | "DateTime" -> ProvidedProperty(propertyName, typeof<System.DateTime>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> uncheckedExpression))
+            | "Integer" -> ProvidedProperty(propertyName, typeof<int>, [], GetterCode = ((integerValueExpression fieldTypeID) >> uncheckedExpression))
+            | "Boolean" -> ProvidedProperty(propertyName, typeof<bool>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
+            // TODO Throw exception here when all the types have been handled
+            | _ -> ProvidedProperty(propertyName, typeof<obj>, [], GetterCode = ((objValueExpression fieldTypeID) >> uncheckedExpression))
+        else
+            // optional property
+            match fieldType.DataType with
+            | "String" -> ProvidedProperty(propertyName, typeof<Option<string>>, [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
+            | "LocaleString" -> ProvidedProperty(propertyName, typeof<Option<Objects.LocaleString>>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> optionPropertyExpression))
+            | "DateTime" -> ProvidedProperty(propertyName, typeof<Option<System.DateTime>>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
+            | "Integer" -> ProvidedProperty(propertyName, typeof<Option<int>>, [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
+            | "Boolean" -> ProvidedProperty(propertyName, typeof<Option<bool>>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
+            // TODO Throw exception here when all the types have been handled
+            | _ -> ProvidedProperty(propertyName, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type

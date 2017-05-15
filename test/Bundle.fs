@@ -14,7 +14,7 @@ let ``Should be able to create a new instance of Bundle and set the name`` () =
     // act
     let instance = Bundle(bundleName)
     // assert
-    test <@ instance.Name = Some bundleName @>
+    test <@ instance.Name = bundleName @>
 
 [<Fact>]
 let ``Constructor parameters should apply naming conventions removing the word bundle and use camel case`` () =

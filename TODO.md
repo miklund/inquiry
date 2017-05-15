@@ -45,7 +45,6 @@ let product = Product(number = "ANewProductNumber")
 ignore <| Product.SaveOrUpdate(product)
 ```
 
-* Mandatory properties should not be Option<> type
 * SaveOrUpdate method on entity class as static
 * Implement all default properties on Entity type
 * Implement data type CVL lists
