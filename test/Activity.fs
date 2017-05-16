@@ -19,6 +19,7 @@ let ``Should be able to create a new instance of activity`` () =
 let ``Should be able to create new instance of Activity based on existing entity`` () =
     // arrange
     let entity = new Objects.Entity()
+    entity.EntityType <- new Objects.EntityType("Activity")
     entity.CreatedBy <- "Mikael Lundin"
     // act
     let instance = Activity.Create(entity)

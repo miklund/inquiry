@@ -26,7 +26,7 @@ The same thing with inQuiry.
 // Create a new product
 let product = Product(number = "ANewProductNumber")
 // Save to PIM
-ignore <| Product.SaveOrUpdate(product)
+ignore <| Product.Save(product)
 ```
 
 The strong type `Product` is generated from the entity information in the

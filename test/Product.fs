@@ -1,5 +1,6 @@
 ﻿module Product
 
+open System
 open inQuiry.TypeProvider
 open inQuiry.Model
 open Xunit
@@ -36,3 +37,16 @@ let ``Constructor parameters should apply naming conventions removing the word p
     let instance = Product(number = "ABC123", status = null, approved = true)
     // assert
     test <@ instance.GetType() = typeof<Product> @>
+
+[<Fact>]
+let ``Saving a product will return an updated Product with new Id`` () =
+    // arrange
+    let productNumber = "SKU" + DateTime.Now.Ticks.ToString()
+    let product = Product(number = productNumber)
+    // act
+    let newProduct = match Product.Save(product) with
+                     | Ok entity -> entity
+                     | Error ex -> failwith ex.Message
+    // assert
+    test <@ newProduct.Number = productNumber @>
+    test <@ newProduct.Id > 0 @>

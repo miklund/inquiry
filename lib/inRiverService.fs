@@ -18,3 +18,12 @@ type inRiverService(host : string, username : string, password : string) =
     // get an entity type by id
     member this.GetEntityTypeById id =
         RemoteManager.ModelService.GetEntityType(id)
+
+    // save entity to inriver
+    member this.Save (entity : Objects.Entity) =
+        if entity.Id > 0 then
+            // updated entity
+            RemoteManager.DataService.UpdateEntity(entity)
+        else
+            // new entity
+            RemoteManager.DataService.AddEntity(entity)

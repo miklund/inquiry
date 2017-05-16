@@ -62,3 +62,16 @@ let ``Setting a non mandatory field TestDescription will set Some value at prope
     let instance = Test.Create(entity)
     // assert
     test <@ instance.Description = Some testData @>
+
+[<Fact>]
+let ``Saving an entity will persist the entity in inRiver`` () =
+    // arrange
+    let name = "Test-" + System.DateTime.Now.Ticks.ToString()
+    let instance = Test(name)
+    // act
+    let savedInstance = match Test.Save(instance) with
+                        | Ok entity -> entity
+                        | Error ex -> failwith ex.Message
+    // assert
+    let entity = RemoteManager.DataService.GetEntity(id = savedInstance.Id, level = Objects.LoadLevel.DataOnly)
+    test <@ (entity.GetField("Name").Data :?> string) = name @>

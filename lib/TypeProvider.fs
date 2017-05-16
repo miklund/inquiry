@@ -60,6 +60,8 @@ type Entity (entityType, entity : Objects.Entity)  =
 
     member this.Entity = entity
     
+    member this.Id = entity.Id
+
     // default properties
     member this.CreatedBy
         with get () = entity.CreatedBy
@@ -175,10 +177,29 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
                     ) emptyConstructorExpr
             <@@ %_constructorExpression @@>
     
-    let createExpression =
+    let createExpression entityTypeID =
         fun (args : Expr list) ->
         <@@
-            Entity(%%(args.[0]) : Objects.Entity)
+            let entity = (%% args.[0] : Objects.Entity)
+            // is entity of the correct type?
+            match entity.EntityType with
+            | null -> failwith (sprintf "Unable to create strong type %s. EntityType was not set on entity." entityTypeID)
+            | entityType when entityType.Id <> entityTypeID -> failwith (sprintf "Unable to create strong type %s. Entity source was %s." entityTypeID entity.EntityType.Id)
+            | _ -> Entity(entity)                
+            @@>
+
+    // will save the entity to inRiver
+    // Returns Result of the saved entity.
+    // * Ok<TEntity>
+    // * Error<Exception>
+    let saveExpression =
+        fun (args : Expr list) ->
+        <@@
+            let entity = (%% args.[0] : Entity)
+            try
+                Ok (Entity(inRiverService().Save(entity.Entity)))
+            with
+                | ex -> Error ex
             @@>
 
     let stringValueExpression fieldTypeID =
@@ -292,9 +313,16 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
 
         // creation method
         let createMethod = ProvidedMethod("Create", [ProvidedParameter("entity", typeof<Objects.Entity>)], typeDefinition)
-        createMethod.IsStaticMethod <- true;
-        createMethod.InvokeCode <- createExpression
-        typeDefinition.AddMember createMethod;
+        createMethod.IsStaticMethod <- true
+        createMethod.InvokeCode <- (createExpression entityType.Id)
+        typeDefinition.AddMember createMethod
+
+        // save method
+        let saveMethodReturnType = typedefof<Result<_,_>>.MakeGenericType([|(typeDefinition :> Type); typeof<Exception>|])
+        let saveMethod = ProvidedMethod("Save", [ProvidedParameter("entity", typeDefinition)], saveMethodReturnType)
+        saveMethod.IsStaticMethod <- true
+        saveMethod.InvokeCode <- saveExpression
+        typeDefinition.AddMember saveMethod
 
         // add fields as properties
         typeDefinition.AddMembers (entityType.FieldTypes |> Seq.map fieldToProperty |> Seq.toList)

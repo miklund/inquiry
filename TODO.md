@@ -42,10 +42,9 @@ The goal with this version is to provide the functionality to do the following.
 
 ```fsharp
 let product = Product(number = "ANewProductNumber")
-ignore <| Product.SaveOrUpdate(product)
+ignore <| Product.Save(product)
 ```
 
-* SaveOrUpdate method on entity class as static
 * Implement all default properties on Entity type
 * Implement data type CVL lists
 * Implement data type LocaleString
