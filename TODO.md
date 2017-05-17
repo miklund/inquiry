@@ -59,7 +59,6 @@ ignore <| Product.Save(product)
 * Setup a nuget package
 * Setup inQuiry.wiki with example code
 * Implement data type CVL lists
-* Implement data type LocaleString
 * Implement data type XML
 * Implement data type File
 * Implement dynamic DisplayDescription

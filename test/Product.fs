@@ -50,3 +50,12 @@ let ``Saving a product will return an updated Product with new Id`` () =
     // assert
     test <@ newProduct.Number = productNumber @>
     test <@ newProduct.Id > 0 @>
+
+[<Fact>]
+let ``A product should have localized product name`` () =
+    // arrange
+    let entity = RemoteManager.DataService.GetEntityByUniqueValue("ProductNumber", "A001", Objects.LoadLevel.DataOnly)
+    // act
+    let product = Product.Create(entity)
+    // assert
+    test <@ product.Name.["en"] = "City Jacket" @>

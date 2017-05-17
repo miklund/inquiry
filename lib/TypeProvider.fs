@@ -40,7 +40,11 @@ let optionPropertyExpression<'a when 'a : equality> (valueExpression : Expr<'a>)
 
 let uncheckedExpression (valueExpression : Expr<'a>) =
     <@@ (% valueExpression : 'a ) @@>
-    
+
+
+// simplify the Objects.LocaleString to a simple map
+type LocaleString = Map<string, string>
+
 // this is the entity value that is returned from the type provider
 type Entity (entityType, entity : Objects.Entity)  =
 
@@ -100,10 +104,11 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
     // map inRiver DataType to .NET types
     let mapDataType = function
     | "String" -> typeof<string>
-    | "LocaleString" -> typeof<Objects.LocaleString>
+    | "LocaleString" -> typeof<LocaleString>
     | "DateTime" -> typeof<System.DateTime>
     | "Integer" -> typeof<int>
     | "Boolean" -> typeof<bool>
+    | "Double" -> typeof<double>
     // TODO Throw exception here for unknown types
     | _ -> typeof<obj>
     
@@ -249,8 +254,14 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         <@
             // get the entity
             let entity = (%%(args.[0]) : Entity)
-            // convert the value to LocaleString
-            (entity.PropertyValue fieldTypeID) :?> Objects.LocaleString
+            // get the field value
+            let localeString = (entity.PropertyValue fieldTypeID) :?> Objects.LocaleString
+            // convert to immutable map
+            match localeString with
+            | null -> Map.empty
+            | ls -> ls.Languages
+                    |> Seq.map (fun lang -> (lang.Name, localeString.[lang]))
+                    |> Map.ofSeq
             @>
 
     let integerValueExpression fieldTypeID =
@@ -269,6 +280,15 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
             let entity = (%%(args.[0]) : Entity)
             // convert the value to DateTime
             (entity.PropertyValue fieldTypeID) :?> System.DateTime
+            @>
+
+    let doubleValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // convert the value to double
+            (entity.PropertyValue fieldTypeID) :?> double
             @>
 
     let booleanValueExpression fieldTypeID =
@@ -318,20 +338,22 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
             // mandatory property
             match fieldType.DataType with
             | "String" -> ProvidedProperty(propertyName, typeof<string>, [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
-            | "LocaleString" -> ProvidedProperty(propertyName, typeof<Objects.LocaleString>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
+            | "LocaleString" -> ProvidedProperty(propertyName, typeof<LocaleString>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
             | "DateTime" -> ProvidedProperty(propertyName, typeof<System.DateTime>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> uncheckedExpression))
             | "Integer" -> ProvidedProperty(propertyName, typeof<int>, [], GetterCode = ((integerValueExpression fieldTypeID) >> uncheckedExpression))
             | "Boolean" -> ProvidedProperty(propertyName, typeof<bool>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
+            | "Double" -> ProvidedProperty(propertyName, typeof<double>, [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
             // TODO Throw exception here when all the types have been handled
             | _ -> ProvidedProperty(propertyName, typeof<obj>, [], GetterCode = ((objValueExpression fieldTypeID) >> uncheckedExpression))
         else
             // optional property
             match fieldType.DataType with
             | "String" -> ProvidedProperty(propertyName, typeof<Option<string>>, [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
-            | "LocaleString" -> ProvidedProperty(propertyName, typeof<Option<Objects.LocaleString>>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> optionPropertyExpression))
+            | "LocaleString" -> ProvidedProperty(propertyName, typeof<LocaleString>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
             | "DateTime" -> ProvidedProperty(propertyName, typeof<Option<System.DateTime>>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
             | "Integer" -> ProvidedProperty(propertyName, typeof<Option<int>>, [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
             | "Boolean" -> ProvidedProperty(propertyName, typeof<Option<bool>>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
+            | "Double" -> ProvidedProperty(propertyName, typeof<Option<double>>, [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
             // TODO Throw exception here when all the types have been handled
             | _ -> ProvidedProperty(propertyName, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
 
