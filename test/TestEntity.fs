@@ -55,7 +55,7 @@ let ``When field type is mandatory and has a default value but is supplied with 
 let ``Setting a non mandatory field TestDescription will set Some value at property TestDescription`` () =
     // arrange
     let testData = "This is description of this Test entity"
-    let entityType = inRiverService().GetEntityTypeById("Test")
+    let entityType = Option.get (inRiverService.getEntityTypeById("Test"))
     let entity = Objects.Entity.CreateEntity(entityType)
     entity.GetField("TestDescription").Data <- testData
     // act

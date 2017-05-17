@@ -1,3 +1,14 @@
+v0.5
+
+Setup a CI pipeline. Use travic-ci in order to build each new commit to VCS.
+
+* Setup TravisCI
+* Get the project to build with Mono
+* Get the project to build with .NET Core
+* Setup an Azure VM with inRiver for testing
+* Make sure that tests run on Mono
+
+
 v0.4
 
 Create support to connect to two or more inRiver servers at the same time. When initializing
@@ -45,8 +56,11 @@ let product = Product(number = "ANewProductNumber")
 ignore <| Product.Save(product)
 ```
 
-* Implement all default properties on Entity type
+* Setup a nuget package
+* Setup inQuiry.wiki with example code
 * Implement data type CVL lists
 * Implement data type LocaleString
 * Implement data type XML
 * Implement data type File
+* Implement dynamic DisplayDescription
+* Implement dynamic DisplayName

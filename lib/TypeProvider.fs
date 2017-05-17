@@ -40,7 +40,7 @@ let optionPropertyExpression<'a when 'a : equality> (valueExpression : Expr<'a>)
 
 let uncheckedExpression (valueExpression : Expr<'a>) =
     <@@ (% valueExpression : 'a ) @@>
-
+    
 // this is the entity value that is returned from the type provider
 type Entity (entityType, entity : Objects.Entity)  =
 
@@ -56,16 +56,44 @@ type Entity (entityType, entity : Objects.Entity)  =
         | null -> failwith (sprintf "Field %s was not set on entity %s:%d" fieldTypeId entityType.Id entity.Id)
         | field -> field.Data
 
-    member this.EntityType = entityType
 
     member this.Entity = entity
     
+    // default properties
+    member this.ChangeSet = entity.ChangeSet
+
+    member this.Completeness =
+        if entity.Completeness.HasValue then
+            Some entity.Completeness.Value
+        else
+            None
+
+    member this.CreatedBy = entity.CreatedBy
+    
+    member this.DateCreated = entity.DateCreated
+
+    member this.EntityType = entityType
+    
+    member this.FieldSetId = entity.FieldSetId
+    
     member this.Id = entity.Id
 
-    // default properties
-    member this.CreatedBy
-        with get () = entity.CreatedBy
-        and set (value) = entity.CreatedBy <- value
+    member this.LastModified = entity.LastModified
+
+    member this.LoadLevel = entity.LoadLevel
+
+    member this.Locked = entity.Locked
+
+    member this.MainPictureId =
+        if entity.MainPictureId.HasValue then
+            Some entity.MainPictureId.Value
+        else
+            None
+    
+    member this.ModifiedBy = entity.ModifiedBy
+
+    member this.Version = entity.Version
+    
    
 type EntityTypeFactory (entityType : Objects.EntityType)  =
 
@@ -128,8 +156,12 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
             // create the entity
             let emptyConstructorExpr =
                 <@
-                    // get the entity type, this should be cached
-                    let entityType = inRiverService().GetEntityTypeById(entityTypeID)
+                    // get the entity type
+                    let entityType = 
+                        match inRiverService.getEntityTypeById(entityTypeID) with
+                        | Some result -> result
+                        | None -> failwith (sprintf "Was expecting entity type %s, but couldn't find it in inRiver service" entityTypeID)
+
                     // create a new instance of the entity
                     Entity(Objects.Entity.CreateEntity(entityType))
                     @>
@@ -197,7 +229,8 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         <@@
             let entity = (%% args.[0] : Entity)
             try
-                Ok (Entity(inRiverService().Save(entity.Entity)))
+                // save to inRiver -> wrap result entity in TEntity instance
+                Ok (Entity(inRiverService.save(entity.Entity)))
             with
                 | ex -> Error ex
             @@>
@@ -334,12 +367,10 @@ type InRiverProvider(config : TypeProviderConfig) as this =
 
     let ns = "inQuiry.Model"
     let assembly = Assembly.GetExecutingAssembly()
-    // TODO: This is bad, better to use the empty constructor
-    let service = inRiverService("http://localhost:8080", "pimuser1", "pimuser1");
     
     // get the entity types from InRiver Model Service
     let entityTypes = 
-        service.GetEntityTypes() 
+        inRiverService.getEntityTypes() 
             |> Seq.map (fun et -> EntityTypeFactory(et).createProvidedTypeDefinition assembly ns)
             |> Seq.toList
 

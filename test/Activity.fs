@@ -7,7 +7,6 @@ open Swensen.Unquote
 open inRiver.Remoting
 open inQuiry
 
-
 [<Fact>]
 let ``Should be able to create a new instance of activity`` () =
     // act
@@ -30,7 +29,7 @@ let ``Should be able to create new instance of Activity based on existing entity
 let ``Should get activity start date (System.DateTime) through generated property`` () =
     // arrange
     let testData = System.DateTime.Now
-    let entityType = inRiverService().GetEntityTypeById("Activity")
+    let entityType = Option.get (inRiverService.getEntityTypeById("Activity"))
     let entity = Objects.Entity.CreateEntity(entityType)
     entity.GetField("ActivityStartDate").Data <- testData
     // act
@@ -42,7 +41,7 @@ let ``Should get activity start date (System.DateTime) through generated propert
 [<Fact>]
 let ``Should get value None when value of generated property ActivityDescription is null`` () =
     // arrange
-    let entityType = inRiverService().GetEntityTypeById("Activity")
+    let entityType = Option.get (inRiverService.getEntityTypeById("Activity"))
     let entity = Objects.Entity.CreateEntity(entityType)
     // act
     let instance = Activity.Create(entity)
@@ -53,7 +52,7 @@ let ``Should get value None when value of generated property ActivityDescription
 let ``Should get Some(value) when value of generated property ActivityDescription is not null`` () =
     // arrange
     let testData = "Activity Description"
-    let entityType = inRiverService().GetEntityTypeById("Activity")
+    let entityType = Option.get (inRiverService.getEntityTypeById("Activity"))
     let entity = Objects.Entity.CreateEntity(entityType)
     entity.GetField("ActivityDescription").Data <- testData
     // act
@@ -65,7 +64,7 @@ let ``Should get Some(value) when value of generated property ActivityDescriptio
 let ``Should get activity length (System.Int32) through generated property ActivityLength`` () =
     // arrange
     let testData = 123
-    let entityType = inRiverService().GetEntityTypeById("Activity")
+    let entityType = Option.get (inRiverService.getEntityTypeById("Activity"))
     let entity = Objects.Entity.CreateEntity(entityType)
     entity.GetField("ActivityLength").Data <- testData
     // act

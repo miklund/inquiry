@@ -3,24 +3,33 @@
 open inRiver.Remoting
 
 // just a wrapper for inRiver.Remoting
-type inRiverService(host : string, username : string, password : string) =
+module inRiverService =
 
     // initialize the RemoteManager
-    do RemoteManager.CreateInstance(host, username, password) |> ignore
-    
-    new() = inRiverService(System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverHost"], System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverUserName"], System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverPassword"])
+    //do RemoteManager.CreateInstance(System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverHost"], System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverUserName"], System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverPassword"]) |> ignore
+    do RemoteManager.CreateInstance("http://localhost:8080", "pimuser1", "pimuser1") |> ignore
 
-    
+    // this is a cache of entity types. We only need to get them once, they will not change
+    let private entityTypes =
+        lazy (
+            RemoteManager.ModelService.GetAllEntityTypes()
+                |> Seq.map (fun entityType -> entityType.Id, entityType)
+                |> Map.ofSeq
+        )
+        
     // return entity type
-    member this.GetEntityTypes () =
-        RemoteManager.ModelService.GetAllEntityTypes() :> Objects.EntityType seq
+    let getEntityTypes () = 
+        entityTypes.Force()
+        |> Map.toSeq
+        |> Seq.map (fun (_, entityType) -> entityType)
     
     // get an entity type by id
-    member this.GetEntityTypeById id =
-        RemoteManager.ModelService.GetEntityType(id)
+    let getEntityTypeById id =
+        entityTypes.Force()
+        |> Map.tryFind id
 
     // save entity to inriver
-    member this.Save (entity : Objects.Entity) =
+    let save (entity : Objects.Entity) =
         if entity.Id > 0 then
             // updated entity
             RemoteManager.DataService.UpdateEntity(entity)
