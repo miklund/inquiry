@@ -42,8 +42,41 @@ let uncheckedExpression (valueExpression : Expr<'a>) =
     <@@ (% valueExpression : 'a ) @@>
 
 
-// simplify the Objects.LocaleString to a simple map
+// simplify the Objects.LocaleString to an immutable map
 type LocaleString = Map<string, string>
+
+// the available field data types
+type DataType = | Boolean | CVL | DateTime | Double | File | Integer | LocaleString | String | Xml
+
+type DataType with
+    // Data type is represented as a string in inRiver
+    static member parse = function
+        | "Boolean" -> Boolean
+        | "CVL" -> CVL
+        | "DateTime" -> DateTime
+        | "Double" -> Double
+        | "File" -> File
+        | "Integer" -> Integer
+        | "LocaleString" -> LocaleString
+        | "String" -> String
+        | "Xml" -> Xml
+        | dt -> failwith (sprintf "Unknown field data type: %s" dt)
+    // Get the .NET Type for this data type
+    static member toType = function
+        | Boolean -> typeof<bool>
+        | CVL -> typeof<obj>
+        | DateTime -> typeof<System.DateTime>
+        | Double -> typeof<double>
+        | File -> typeof<obj>
+        | Integer -> typeof<int>
+        | LocaleString -> typeof<LocaleString>
+        | String -> typeof<string>
+        | Xml -> typeof<obj>
+    // Get the Option type for data type
+    static member toOptionType dataType =
+        typedefof<Option<_>>.MakeGenericType([|dataType |> DataType.toType|])
+    // Shortcut
+    static member stringToType = DataType.parse >> DataType.toType
 
 // this is the entity value that is returned from the type provider
 type Entity (entityType, entity : Objects.Entity)  =
@@ -100,18 +133,7 @@ type Entity (entityType, entity : Objects.Entity)  =
     
    
 type EntityTypeFactory (entityType : Objects.EntityType)  =
-
-    // map inRiver DataType to .NET types
-    let mapDataType = function
-    | "String" -> typeof<string>
-    | "LocaleString" -> typeof<LocaleString>
-    | "DateTime" -> typeof<System.DateTime>
-    | "Integer" -> typeof<int>
-    | "Boolean" -> typeof<bool>
-    | "Double" -> typeof<double>
-    // TODO Throw exception here for unknown types
-    | _ -> typeof<obj>
-    
+   
     // filter all FieldTypes that are mandatory
     let mandatoryFieldTypes =
         entityType.FieldTypes
@@ -147,10 +169,10 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
             // these fields are all mandatory
             if fieldType.DefaultValue = null then
                 // so they are required as constructor parameters
-                ProvidedParameter((providedParameterNamingConvention fieldType.Id), mapDataType(fieldType.DataType))
+                ProvidedParameter((providedParameterNamingConvention fieldType.Id), (fieldType.DataType |> DataType.stringToType))
             else
                 // unless there is a default value, then the constructor parameter can be optional
-                ProvidedParameter((providedParameterNamingConvention fieldType.Id), mapDataType(fieldType.DataType), optionalValue = fieldType.DefaultValue))
+                ProvidedParameter((providedParameterNamingConvention fieldType.Id), (fieldType.DataType |> DataType.stringToType), optionalValue = fieldType.DefaultValue))
 
     let mandatoryProvidedParameters =
         fieldTypeToProvidedParameter mandatoryFieldTypes
@@ -175,42 +197,46 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
                 |> List.zip fieldTypes
                 |> List.fold (fun entityExpr (fieldType, argExpr) ->
                     let fieldTypeId = fieldType.Id
-                    match fieldType.DataType with
-                    | "String" ->
+                    match DataType.parse fieldType.DataType with
+                    | String ->
                         <@
                             let entity = (% entityExpr : Entity)
                             entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : string)
                             entity
                             @>
-                    | "Integer" ->
+                    | Integer ->
                         <@
                             let entity = (% entityExpr : Entity)
-                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : string)
+                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : int)
                             entity
                             @>
-                    | "Boolean" ->
-                        <@
-                            let entity = (% entityExpr : Entity)
-                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : bool)
-                            entity
-                            @>
-                    | "Double" ->
+                    | Boolean ->
                         <@
                             let entity = (% entityExpr : Entity)
                             entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : bool)
                             entity
                             @>
-                    | "DateTime" ->
+                    | Double ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : double)
+                            entity
+                            @>
+                    | DateTime ->
                         <@
                             let entity = (% entityExpr : Entity)
                             entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : DateTime)
                             entity
                             @>
+                    | LocaleString ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : LocaleString)
+                            entity
+                            @>
                     // NOTE one does not simply implement CVL lists
-                    | "CVL" | "LocaleString" | "XML" | "File" -> 
+                    | CVL | Xml | File -> 
                         <@ (% entityExpr : Entity) @>
-                    | dataType -> 
-                        failwith (sprintf "While generating constructor: In field %s, not yet supporting field type %s" fieldTypeId dataType)
                     ) emptyConstructorExpr
             <@@ %_constructorExpression @@>
     
@@ -336,24 +362,24 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         // TODO Refactor this because it is ugly as F#ck
         if fieldType.Mandatory then
             // mandatory property
-            match fieldType.DataType with
-            | "String" -> ProvidedProperty(propertyName, typeof<string>, [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
-            | "LocaleString" -> ProvidedProperty(propertyName, typeof<LocaleString>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
-            | "DateTime" -> ProvidedProperty(propertyName, typeof<System.DateTime>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> uncheckedExpression))
-            | "Integer" -> ProvidedProperty(propertyName, typeof<int>, [], GetterCode = ((integerValueExpression fieldTypeID) >> uncheckedExpression))
-            | "Boolean" -> ProvidedProperty(propertyName, typeof<bool>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
-            | "Double" -> ProvidedProperty(propertyName, typeof<double>, [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
+            match DataType.parse fieldType.DataType with
+            | String as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
+            | LocaleString as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
+            | DateTime as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> uncheckedExpression))
+            | Integer as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> uncheckedExpression))
+            | Boolean as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
+            | Double as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
             // TODO Throw exception here when all the types have been handled
             | _ -> ProvidedProperty(propertyName, typeof<obj>, [], GetterCode = ((objValueExpression fieldTypeID) >> uncheckedExpression))
         else
             // optional property
-            match fieldType.DataType with
-            | "String" -> ProvidedProperty(propertyName, typeof<Option<string>>, [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
-            | "LocaleString" -> ProvidedProperty(propertyName, typeof<LocaleString>, [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
-            | "DateTime" -> ProvidedProperty(propertyName, typeof<Option<System.DateTime>>, [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
-            | "Integer" -> ProvidedProperty(propertyName, typeof<Option<int>>, [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
-            | "Boolean" -> ProvidedProperty(propertyName, typeof<Option<bool>>, [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
-            | "Double" -> ProvidedProperty(propertyName, typeof<Option<double>>, [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
+            match DataType.parse fieldType.DataType with
+            | String as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
+            | LocaleString as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
+            | DateTime as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
+            | Integer as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
+            | Boolean as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
+            | Double as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
             // TODO Throw exception here when all the types have been handled
             | _ -> ProvidedProperty(propertyName, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
 
