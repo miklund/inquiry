@@ -45,43 +45,43 @@ let uncheckedExpression (valueExpression : Expr<'a>) =
 type LocaleString = Map<string, string>
 
 // the available field data types
-type DataType = | Boolean | CVL | DateTime | Double | File | Integer | LocaleString | String | Xml
+type DataType = 
+    | Boolean 
+    | CVL of string 
+    | DateTime 
+    | Double 
+    | File 
+    | Integer 
+    | LocaleString 
+    | String 
+    | Xml
 
 type DataType with
     // Data type is represented as a string in inRiver
     static member parse = function
-        | "Boolean" -> Boolean
-        | "CVL" -> CVL
-        | "DateTime" -> DateTime
-        | "Double" -> Double
-        | "File" -> File
-        | "Integer" -> Integer
-        | "LocaleString" -> LocaleString
-        | "String" -> String
-        | "Xml" -> Xml
-        | dt -> failwith (sprintf "Unknown field data type: %s" dt)
-    // Get the .NET Type for this data type
-    static member toType = function
-        | Boolean -> typeof<bool>
-        | CVL -> typeof<obj>
-        | DateTime -> typeof<System.DateTime>
-        | Double -> typeof<double>
-        | File -> typeof<obj>
-        | Integer -> typeof<int>
-        | LocaleString -> typeof<LocaleString>
-        | String -> typeof<string>
-        | Xml -> typeof<obj>
-    // Get the Option type for data type
-    static member toOptionType dataType =
-        typedefof<Option<_>>.MakeGenericType([|dataType |> DataType.toType|])
-    // Shortcut
-    static member stringToType = DataType.parse >> DataType.toType
+        | "Boolean", _ -> Boolean
+        | "CVL", id -> CVL id
+        | "DateTime", _ -> DateTime
+        | "Double", _ -> Double
+        | "File", _ -> File
+        | "Integer", _ -> Integer
+        | "LocaleString", _ -> LocaleString
+        | "String", _ -> String
+        | "Xml", _ -> Xml
+        | dt, _ -> failwith (sprintf "Unknown field data type: %s" dt)
 
 // cvl stands for Custom Value List
 type CVLNode (cvlType : Objects.CVL, cvlValue : Objects.CVLValue) = 
-    member this.DataType = cvlType.DataType |> DataType.parse
+    member this.DataType = (cvlType.DataType, cvlValue.CVLId) |> DataType.parse
     member this.CvlType = cvlType
     member this.CvlValue = cvlValue
+    override x.GetHashCode () =
+        hash (cvlType, cvlValue)
+    override x.Equals(b) =
+        match b with
+        | :? CVLNode as cvl -> (cvlValue.Id, cvlValue.CVLId) = (cvl.CvlValue.Id, cvl.CvlValue.CVLId)
+        | _ -> false
+    override x.ToString () = sprintf "(%s)" (cvlValue.ToString())
 
 // this is the entity value that is returned from the type provider
 type Entity (entityType, entity : Objects.Entity)  =
@@ -137,8 +137,7 @@ type Entity (entityType, entity : Objects.Entity)  =
     member this.Version = entity.Version
     
    
-type EntityTypeFactory (entityType : Objects.EntityType)  =
-   
+type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Objects.EntityType)  =
     // filter all FieldTypes that are mandatory
     let mandatoryFieldTypes =
         entityType.FieldTypes
@@ -149,6 +148,23 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         // change their orders so mandatory without default value comes first
         |> Seq.sortBy (fun fieldType -> if fieldType.DefaultValue = null then 1 else 2)
         |> Seq.toList
+
+    // Get the .NET Type for this data type
+    let toType = function
+        | Boolean -> typeof<bool>
+        | CVL id -> cvlTypes |> List.find (fun t -> t.Name = id) :> Type
+        | DateTime -> typeof<System.DateTime>
+        | Double -> typeof<double>
+        | File -> typeof<obj>
+        | Integer -> typeof<int>
+        | LocaleString -> typeof<LocaleString>
+        | String -> typeof<string>
+        | Xml -> typeof<obj>
+    // Get the Option type for data type
+    let toOptionType dataType =
+        typedefof<Option<_>>.MakeGenericType([|dataType |> toType|])
+    // Shortcut
+    let stringToType = DataType.parse >> toType
 
     let fieldTypeToProvidedParameter =
         // a constructor parameter name should remove the leading entityTypeID and make camel case
@@ -174,10 +190,10 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
             // these fields are all mandatory
             if fieldType.DefaultValue = null then
                 // so they are required as constructor parameters
-                ProvidedParameter((providedParameterNamingConvention fieldType.Id), (fieldType.DataType |> DataType.stringToType))
+                ProvidedParameter((providedParameterNamingConvention fieldType.Id), ((fieldType.DataType, fieldType.CVLId) |> stringToType))
             else
                 // unless there is a default value, then the constructor parameter can be optional
-                ProvidedParameter((providedParameterNamingConvention fieldType.Id), (fieldType.DataType |> DataType.stringToType), optionalValue = fieldType.DefaultValue))
+                ProvidedParameter((providedParameterNamingConvention fieldType.Id), ((fieldType.DataType, fieldType.CVLId) |> stringToType), optionalValue = fieldType.DefaultValue))
 
     let mandatoryProvidedParameters =
         fieldTypeToProvidedParameter mandatoryFieldTypes
@@ -202,7 +218,7 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
                 |> List.zip fieldTypes
                 |> List.fold (fun entityExpr (fieldType, argExpr) ->
                     let fieldTypeId = fieldType.Id
-                    match DataType.parse fieldType.DataType with
+                    match DataType.parse (fieldType.DataType, fieldType.CVLId) with
                     | String ->
                         <@
                             let entity = (% entityExpr : Entity)
@@ -236,11 +252,29 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
                     | LocaleString ->
                         <@
                             let entity = (% entityExpr : Entity)
+                            // BUG This cannot work, must convert LocaleString -> Objects.LocaleString
                             entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : LocaleString)
                             entity
                             @>
+                    | CVL id ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            let value = (%% argExpr : CVLNode)
+                            try
+                                entity.Entity.GetField(fieldTypeId).Data <- value.CvlValue.Key
+                            with
+                                // cannot check if value is null, because it cannot be null as it is a record type
+                                // however it can be null because the subtype is not a record and can be null
+                                // in conclusion, null is a bad thing and we want a suitable error message
+                                | :? System.NullReferenceException ->
+                                    if System.String.IsNullOrEmpty(entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue) then 
+                                        failwith (sprintf "Tried to initiate a mandatory constructor parameter %s with null" fieldTypeId)
+                                    else
+                                        () // there is a default value, it will be set in the emptyConsturctor expression
+                            entity
+                            @>
                     // NOTE one does not simply implement CVL lists
-                    | CVL | Xml | File -> 
+                    | CVL _ | Xml | File -> 
                         <@ (% entityExpr : Entity) @>
                     ) emptyConstructorExpr
             <@@ %_constructorExpression @@>
@@ -330,6 +364,26 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
             // convert the value to bool
             (entity.PropertyValue fieldTypeID) :?> bool
             @>
+        
+    let cvlValueExpression cvlId fieldTypeID =
+        fun (args : Expr list) ->
+        <@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the cvl key
+            let cvlValueKey = (entity.PropertyValue fieldTypeID) :?> string
+            // get the cvl value
+            let cvlValue = match inRiverService.getCvlValueByKey cvlId cvlValueKey with
+                           | Some cvlValue -> cvlValue
+                           | None -> failwith (sprintf "Was unable to find CVLValue with key %s in service" cvlValueKey)
+
+            // get the cvl type
+            let cvlType = match inRiverService.getCvlTypeById cvlId with
+                          | Some cvlType -> cvlType
+                          | None -> failwith (sprintf "Was expecting CVL with id %s in service" cvlId)
+            // create the value
+            CVLNode(cvlType, cvlValue)
+            @>
 
     let objValueExpression fieldTypeID =
         fun (args : Expr list) ->
@@ -367,24 +421,26 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         // TODO Refactor this because it is ugly as F#ck
         if fieldType.Mandatory then
             // mandatory property
-            match DataType.parse fieldType.DataType with
-            | String as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
-            | LocaleString as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
-            | DateTime as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> uncheckedExpression))
-            | Integer as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> uncheckedExpression))
-            | Boolean as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
-            | Double as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
+            match DataType.parse (fieldType.DataType, fieldType.CVLId) with
+            | String as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
+            | LocaleString as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
+            | DateTime as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> uncheckedExpression))
+            | Integer as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> uncheckedExpression))
+            | Boolean as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
+            | Double as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
+            | CVL id as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> uncheckedExpression))
             // TODO Throw exception here when all the types have been handled
             | _ -> ProvidedProperty(propertyName, typeof<obj>, [], GetterCode = ((objValueExpression fieldTypeID) >> uncheckedExpression))
         else
             // optional property
-            match DataType.parse fieldType.DataType with
-            | String as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
-            | LocaleString as dataType -> ProvidedProperty(propertyName, (DataType.toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
-            | DateTime as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
-            | Integer as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
-            | Boolean as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
-            | Double as dataType -> ProvidedProperty(propertyName, (DataType.toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
+            match DataType.parse (fieldType.DataType, fieldType.CVLId) with
+            | String as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
+            | LocaleString as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
+            | DateTime as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
+            | Integer as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
+            | Boolean as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
+            | Double as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
+            | CVL id  as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
             // TODO Throw exception here when all the types have been handled
             | _ -> ProvidedProperty(propertyName, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
 
@@ -450,14 +506,19 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
                         |> Seq.map (fun lang -> (lang.Name, localeString.[lang]))
                         |> Map.ofSeq
                 @@>
-        | Integer | Boolean | DateTime | Double | File | Xml | CVL -> 
-            failwith "Only String and LocalString are supported data types for CVLs"
+        | _ -> failwith "Only String and LocalString are supported data types for CVLs"
 
     let cvlValueToProperty typeDefinition (cvlValue : Objects.CVLValue) =
         let prop = ProvidedProperty(cvlValue.Key, typeDefinition, [], GetterCode = (cvlValueExpression cvlType.Id cvlValue.Id))
         prop.IsStatic <- true
         prop
 
+    // Get the .NET Type for this data type
+    let toType = function
+        | "LocaleString" -> typeof<LocaleString>
+        | "String" -> typeof<string>
+        | _ -> failwith "CVLs can only be of String and LocalString types"
+        
     member this.createProvidedTypeDefinition assembly ns =
         // create the type
         let typeDefinition = ProvidedTypeDefinition(assembly, ns, cvlType.Id, Some typeof<CVLNode>)
@@ -471,7 +532,7 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
         typeDefinition.AddMembers cvlValues
 
         // create a value property with the cvl value
-        let valueProperty = ProvidedProperty("value", (cvlType.DataType |> DataType.stringToType), [], GetterCode = (cvlValuePropertyExpression (cvlType.DataType |> DataType.parse)))
+        let valueProperty = ProvidedProperty("value", (cvlType.DataType |> toType), [], GetterCode = (cvlValuePropertyExpression ((cvlType.DataType, "") |> DataType.parse)))
         typeDefinition.AddMembers [valueProperty]
 
         typeDefinition
@@ -483,16 +544,16 @@ type InRiverProvider(config : TypeProviderConfig) as this =
 
     let ns = "inQuiry.Model"
     let assembly = Assembly.GetExecutingAssembly()
-    
-    // get the entity types from InRiver Model Service
-    let entityTypes = 
-        inRiverService.getEntityTypes() 
-            |> Seq.map (fun et -> EntityTypeFactory(et).createProvidedTypeDefinition assembly ns)
-            |> Seq.toList
 
     let cvlTypes =
         inRiverService.getCvlTypes()
             |> Seq.map (fun cvl -> CvlTypeFactory(cvl).createProvidedTypeDefinition assembly ns)
+            |> Seq.toList
+    
+    // get the entity types from InRiver Model Service
+    let entityTypes = 
+        inRiverService.getEntityTypes() 
+            |> Seq.map (fun et -> EntityTypeFactory(cvlTypes, et).createProvidedTypeDefinition assembly ns)
             |> Seq.toList
 
     do

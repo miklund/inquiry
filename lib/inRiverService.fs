@@ -66,6 +66,13 @@ module inRiverService =
     let getCvlValueById valueId =
         cvlValues.Force()
         |> Map.tryFind valueId
+    
+    let getCvlValueByKey cvlId key =
+        cvlValues.Force()
+        |> Map.toSeq
+        |> Seq.map snd
+        |> Seq.tryFind (fun cvlValue -> cvlValue.CVLId = cvlId && cvlValue.Key = key)
+        
 
     // save entity to inriver
     let save (entity : Objects.Entity) =

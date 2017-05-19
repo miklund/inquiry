@@ -11,14 +11,14 @@ open inQuiry
 [<Fact>]
 let ``Should be able to create a new instance of product`` () =
     // act
-    let instance = Product("ABC123", null, false)
+    let instance = Product("ABC123", ProductStatus.webready, false)
     // assert
     test <@ instance.GetType() = typeof<Product> @>
 
 [<Fact>]
 let ``Mandatory parameter ProductNumber injected in constructor should be set to entity`` () =
     // act
-    let instance = Product("ABC123", null, false)
+    let instance = Product("ABC123", ProductStatus.printready, false)
     // assert
     test <@ instance.Number = "ABC123" @>
 
@@ -27,14 +27,14 @@ let ``Mandatory parameter ProductApproved injected in constructor should be set 
     // arrange
     let productApproved = true
     // act
-    let instance = Product("ABC123", null, productApproved)
+    let instance = Product("ABC123", ProductStatus.underenrichment, productApproved)
     // assert
     test <@ instance.Approved = productApproved @>
 
 [<Fact>]
 let ``Constructor parameters should apply naming conventions removing the word product and use camel case`` () =
     // act
-    let instance = Product(number = "ABC123", status = null, approved = true)
+    let instance = Product(number = "ABC123", status = ProductStatus.webready, approved = true)
     // assert
     test <@ instance.GetType() = typeof<Product> @>
 
@@ -59,3 +59,17 @@ let ``A product should have localized product name`` () =
     let product = Product.Create(entity)
     // assert
     test <@ product.Name.["en"] = "City Jacket" @>
+
+[<Fact>]
+let ``ProductStatus CVL should be set in the constructor`` () =
+    // act
+    let product = Product("ABC123", status = ProductStatus.underenrichment)
+    // assert
+    test <@ product.Status = ProductStatus.underenrichment @>
+   
+[<Fact>]
+let ``Default value of ProductStatus should be new`` () =
+    // act
+    let product = Product("ABC123")
+    // assert
+    test <@ product.Status = ProductStatus.``new`` @>
