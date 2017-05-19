@@ -36,6 +36,7 @@ let newProduct = { product | Number = "SKU 456"}
 newProduct.Save() |> ignore
 ```
 
+* Add XML comments for all the fields
 * Able to change values by immutable type syntax
 * Implement FieldSets
 * Implement Categories
@@ -58,7 +59,9 @@ ignore <| Product.Save(product)
 
 * Setup a nuget package
 * Setup inQuiry.wiki with example code
-* Implement data type CVL lists
+* Setup an example project with the following examples
+  - How to create and add a new product to inriver by FSX
+  - How to write an import extension importing data from XML to inRiver
 * Implement data type XML
 * Implement data type File
 * Implement dynamic DisplayDescription

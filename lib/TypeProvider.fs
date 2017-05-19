@@ -41,7 +41,6 @@ let optionPropertyExpression<'a when 'a : equality> (valueExpression : Expr<'a>)
 let uncheckedExpression (valueExpression : Expr<'a>) =
     <@@ (% valueExpression : 'a ) @@>
 
-
 // simplify the Objects.LocaleString to an immutable map
 type LocaleString = Map<string, string>
 
@@ -77,6 +76,12 @@ type DataType with
         typedefof<Option<_>>.MakeGenericType([|dataType |> DataType.toType|])
     // Shortcut
     static member stringToType = DataType.parse >> DataType.toType
+
+// cvl stands for Custom Value List
+type CVLNode (cvlType : Objects.CVL, cvlValue : Objects.CVLValue) = 
+    member this.DataType = cvlType.DataType |> DataType.parse
+    member this.CvlType = cvlType
+    member this.CvlValue = cvlValue
 
 // this is the entity value that is returned from the type provider
 type Entity (entityType, entity : Objects.Entity)  =
@@ -409,6 +414,69 @@ type EntityTypeFactory (entityType : Objects.EntityType)  =
         typeDefinition.AddMembers (entityType.FieldTypes |> Seq.map fieldToProperty |> Seq.toList)
         typeDefinition
 
+type CvlTypeFactory(cvlType : Objects.CVL) =
+    
+    // this is a property expression, when calling a static property FashionMaterial.cotton there
+    // should be a new instance of CVLNode created with that cvl value
+    let cvlValueExpression cvlId cvlValueId =
+        fun args ->
+        <@@
+            // get the type
+            let cvlType = 
+                match inRiverService.getCvlTypeById(cvlId) with
+                | Some cvlType -> cvlType
+                | None -> failwith (sprintf "CVL type with ID %s was not found in inRiver" cvlId)
+
+            // get the value
+            let cvlValue = 
+                match inRiverService.getCvlValueById(cvlValueId) with
+                | Some cvlValue -> cvlValue
+                | None -> failwith (sprintf "CVL value with ID %d was not found in inRiver" cvlValueId)
+                
+            CVLNode(cvlType, cvlValue)
+            @@>
+
+    let cvlValuePropertyExpression = function
+        | String -> fun (args : Expr list) -> <@@ (%% args.[0] : CVLNode).CvlValue.Value :?> string @@>
+        | LocaleString -> 
+            fun (args : Expr list) ->
+            <@@
+                // get the cvl value
+                let localeString = (%% args.[0] : CVLNode).CvlValue.Value :?> Objects.LocaleString
+                // convert to immutable map
+                match localeString with
+                | null -> Map.empty
+                | ls -> ls.Languages
+                        |> Seq.map (fun lang -> (lang.Name, localeString.[lang]))
+                        |> Map.ofSeq
+                @@>
+        | Integer | Boolean | DateTime | Double | File | Xml | CVL -> 
+            failwith "Only String and LocalString are supported data types for CVLs"
+
+    let cvlValueToProperty typeDefinition (cvlValue : Objects.CVLValue) =
+        let prop = ProvidedProperty(cvlValue.Key, typeDefinition, [], GetterCode = (cvlValueExpression cvlType.Id cvlValue.Id))
+        prop.IsStatic <- true
+        prop
+
+    member this.createProvidedTypeDefinition assembly ns =
+        // create the type
+        let typeDefinition = ProvidedTypeDefinition(assembly, ns, cvlType.Id, Some typeof<CVLNode>)
+        typeDefinition.HideObjectMethods <- true;
+
+        // create values as static properties
+        let cvlValues =
+            inRiverService.getCvlValues(cvlType.Id)
+                |> Seq.map (cvlValueToProperty typeDefinition)
+                |> Seq.toList
+        typeDefinition.AddMembers cvlValues
+
+        // create a value property with the cvl value
+        let valueProperty = ProvidedProperty("value", (cvlType.DataType |> DataType.stringToType), [], GetterCode = (cvlValuePropertyExpression (cvlType.DataType |> DataType.parse)))
+        typeDefinition.AddMembers [valueProperty]
+
+        typeDefinition
+
+
 [<TypeProvider>]
 type InRiverProvider(config : TypeProviderConfig) as this =
     inherit TypeProviderForNamespaces()
@@ -422,8 +490,13 @@ type InRiverProvider(config : TypeProviderConfig) as this =
             |> Seq.map (fun et -> EntityTypeFactory(et).createProvidedTypeDefinition assembly ns)
             |> Seq.toList
 
+    let cvlTypes =
+        inRiverService.getCvlTypes()
+            |> Seq.map (fun cvl -> CvlTypeFactory(cvl).createProvidedTypeDefinition assembly ns)
+            |> Seq.toList
+
     do
-        this.AddNamespace(ns, entityTypes)
+        this.AddNamespace(ns, entityTypes @ cvlTypes)
 
     
 [<assembly:TypeProviderAssembly>] 
