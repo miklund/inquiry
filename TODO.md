@@ -36,17 +36,17 @@ let newProduct = { product | Number = "SKU 456"}
 newProduct.Save() |> ignore
 ```
 
+* Deal with relations between entities, handle links
 * Add XML comments for all the fields
 * Able to change values by immutable type syntax
 * Implement FieldSets
 * Implement Categories
 * Implement Read-Only properties
-* Implement Display Name
-* Implement Display Description
 * Implement MultiValue
 * Implement Unique
 * Implement Hidden
 * Implement Exclude from Default View
+* Create fsi files to protect internal members of the library
 
 v0.1
 
@@ -64,5 +64,3 @@ ignore <| Product.Save(product)
   - How to write an import extension importing data from XML to inRiver
 * Implement data type XML
 * Implement data type File
-* Implement dynamic DisplayDescription
-* Implement dynamic DisplayName

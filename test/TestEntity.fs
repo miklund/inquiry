@@ -75,3 +75,12 @@ let ``Saving an entity will persist the entity in inRiver`` () =
     // assert
     let entity = RemoteManager.DataService.GetEntity(id = savedInstance.Id, level = Objects.LoadLevel.DataOnly)
     test <@ (entity.GetField("Name").Data :?> string) = name @>
+
+[<Fact>]
+let ``Name is DisplayDescription`` () =
+    // arrange
+    let name = "Once upon a time"
+    // act
+    let instance = Test(name)
+    // assert
+    test <@ instance.Name = instance.DisplayDescription @>

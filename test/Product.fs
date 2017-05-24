@@ -73,3 +73,12 @@ let ``Default value of ProductStatus should be new`` () =
     let product = Product("ABC123")
     // assert
     test <@ product.Status = ProductStatus.``new`` @>
+
+[<Fact>]
+let ``ProductNumber is the DisplayName`` () =
+    // arrange
+    let productNumber = "ABC321"
+    // act
+    let product = Product(productNumber)
+    // assert
+    test <@ product.Number = product.DisplayName @>

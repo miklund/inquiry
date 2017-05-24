@@ -501,9 +501,9 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             // there isn't a conflict, return the convention property
             result
 
-    let fieldToProperty (fieldType : Objects.FieldType) =
+    let fieldToProperty (fieldType : Objects.FieldType) propertyName =
         let fieldTypeID = fieldType.Id
-        let propertyName = createPropertyName fieldTypeID
+        //let propertyName = createPropertyName fieldTypeID
 
         // TODO Refactor this because it is ugly as F#ck
         if fieldType.Mandatory then
@@ -535,7 +535,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         // create the type
         let typeDefinition = ProvidedTypeDefinition(assembly, ns, entityType.Id, Some typeof<Entity>)
         typeDefinition.HideObjectMethods <- true;
-
+        
         // create a constructor
         let ctor = ProvidedConstructor(mandatoryProvidedParameters, InvokeCode = constructorExpression entityType.Id mandatoryFieldTypes)
         typeDefinition.AddMember ctor
@@ -554,7 +554,22 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         typeDefinition.AddMember saveMethod
 
         // add fields as properties
-        typeDefinition.AddMembers (entityType.FieldTypes |> Seq.map fieldToProperty |> Seq.toList)
+        typeDefinition.AddMembers (
+            entityType.FieldTypes 
+            |> Seq.map (fun fieldType -> fieldToProperty fieldType (createPropertyName fieldType.Id))
+            |> Seq.toList
+            )
+
+        // find display properties
+        [ "DisplayName",  entityType.FieldTypes |> Seq.tryFind (fun (fieldType : Objects.FieldType) -> fieldType.IsDisplayName)
+        ; "DisplayDescription", entityType.FieldTypes |> Seq.tryFind (fun (fieldType : Objects.FieldType) -> fieldType.IsDisplayDescription) ]
+        // filter out DisplayName or DisplayDescription if found
+        |> List.filter (fun (_, fieldType) -> fieldType.IsSome)
+        // map to ProvidedParameter type
+        |> List.map (fun (propertyName, fieldType) -> fieldToProperty fieldType.Value propertyName)
+        // append to type definition
+        |> typeDefinition.AddMembers
+
         typeDefinition
 
 type CvlTypeFactory(cvlType : Objects.CVL) =
