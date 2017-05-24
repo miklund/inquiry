@@ -165,7 +165,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         typedefof<Option<_>>.MakeGenericType([|dataType |> toType|])
     // Shortcut
     let stringToType = DataType.parse >> toType
-
+    
     let fieldTypeToProvidedParameter =
         // a constructor parameter name should remove the leading entityTypeID and make camel case
         let providedParameterNamingConvention fieldTypeID = 
@@ -187,13 +187,15 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
 
         // map field type to provided parameter
         List.map (fun (fieldType : Objects.FieldType) ->
+            let dataType = DataType.parse (fieldType.DataType, fieldType.CVLId)
             // these fields are all mandatory
             if fieldType.DefaultValue = null then
                 // so they are required as constructor parameters
-                ProvidedParameter((providedParameterNamingConvention fieldType.Id), ((fieldType.DataType, fieldType.CVLId) |> stringToType))
+                ProvidedParameter((providedParameterNamingConvention fieldType.Id), dataType |> toType)
             else
                 // unless there is a default value, then the constructor parameter can be optional
-                ProvidedParameter((providedParameterNamingConvention fieldType.Id), ((fieldType.DataType, fieldType.CVLId) |> stringToType), optionalValue = fieldType.DefaultValue))
+                ProvidedParameter((providedParameterNamingConvention fieldType.Id), (dataType |> toType), optionalValue = None )
+            )
 
     let mandatoryProvidedParameters =
         fieldTypeToProvidedParameter mandatoryFieldTypes
@@ -222,56 +224,141 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                     | String ->
                         <@
                             let entity = (% entityExpr : Entity)
-                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : string)
+                            let value = (%% argExpr : string)
+                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                                // this is a mandatory constructor parameter
+                                entity.Entity.GetField(fieldTypeId).Data <- value
+                            else
+                                // this is an optional constructor parameter
+                                if (value :> obj) = null then
+                                    // use the default value set in empty constructor
+                                    ()
+                                else
+                                    // overwrite default value with provided value
+                                    entity.Entity.GetField(fieldTypeId).Data <- value
                             entity
                             @>
                     | Integer ->
                         <@
                             let entity = (% entityExpr : Entity)
-                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : int)
+                            let value = (%% argExpr : int)
+                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                                // this is a mandatory constructor parameter
+                                entity.Entity.GetField(fieldTypeId).Data <- value
+                            else
+                                // this is an optional constructor parameter
+                                if (value :> obj) = null then
+                                    // use the default value set in empty constructor
+                                    ()
+                                else
+                                    // overwrite default value with provided value
+                                    entity.Entity.GetField(fieldTypeId).Data <- value
                             entity
                             @>
                     | Boolean ->
                         <@
                             let entity = (% entityExpr : Entity)
-                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : bool)
+                            let value = (%% argExpr : bool)
+                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                                // this is a mandatory constructor parameter
+                                entity.Entity.GetField(fieldTypeId).Data <- value
+                            else
+                                // this is an optional constructor parameter
+                                if (value :> obj) = null then
+                                    // use the default value set in empty constructor
+                                    ()
+                                else
+                                    // overwrite default value with provided value
+                                    entity.Entity.GetField(fieldTypeId).Data <- value
                             entity
                             @>
                     | Double ->
                         <@
                             let entity = (% entityExpr : Entity)
-                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : double)
+                            let value = (%% argExpr : double)
+                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                                // this is a mandatory constructor parameter
+                                entity.Entity.GetField(fieldTypeId).Data <- value
+                            else
+                                // this is an optional constructor parameter
+                                if (value :> obj) = null then
+                                    // use the default value set in empty constructor
+                                    ()
+                                else
+                                    // overwrite default value with provided value
+                                    entity.Entity.GetField(fieldTypeId).Data <- value
                             entity
                             @>
                     | DateTime ->
                         <@
                             let entity = (% entityExpr : Entity)
-                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : DateTime)
+                            let value = (%% argExpr : DateTime)
+                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                                // this is a mandatory constructor parameter
+                                entity.Entity.GetField(fieldTypeId).Data <- value
+                            else
+                                // this is an optional constructor parameter
+                                if (value :> obj) = null then
+                                    // use the default value set in empty constructor
+                                    ()
+                                else
+                                    // overwrite default value with provided value
+                                    entity.Entity.GetField(fieldTypeId).Data <- value
                             entity
                             @>
                     | LocaleString ->
                         <@
                             let entity = (% entityExpr : Entity)
+                            let value = (%% argExpr : LocaleString)
                             // BUG This cannot work, must convert LocaleString -> Objects.LocaleString
-                            entity.Entity.GetField(fieldTypeId).Data <- (%% argExpr : LocaleString)
+                            let toObjects (input : LocaleString) =
+                                // get languages
+                                let languages = 
+                                    new System.Collections.Generic.List<System.Globalization.CultureInfo> (
+                                        input
+                                        |> Map.toSeq
+                                        |> Seq.map (fun (lang, value) -> System.Globalization.CultureInfo.GetCultureInfo(lang)))
+                                // create result object
+                                let result = Objects.LocaleString(languages)
+                                // feed it with values
+                                input
+                                |> Map.toSeq
+                                |> Seq.iter (fun (lang, value) -> result.[System.Globalization.CultureInfo.GetCultureInfo(lang)] <- value)
+                                // return
+                                result
+
+                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                                // this is a mandatory constructor parameter
+                                entity.Entity.GetField(fieldTypeId).Data <- value |> toObjects
+                            else
+                                // this is an optional constructor parameter
+                                if (value :> obj) = null then
+                                    // use the default value set in empty constructor
+                                    ()
+                                else
+                                    // overwrite default value with provided value
+                                    entity.Entity.GetField(fieldTypeId).Data <- value |> toObjects
                             entity
                             @>
                     | CVL id ->
                         <@
                             let entity = (% entityExpr : Entity)
+                            let field = entity.Entity.GetField(fieldTypeId)
                             let value = (%% argExpr : CVLNode)
-                            try
+
+                            if field.FieldType.DefaultValue = null then
+                                // this is a mandatory constructor parameter
                                 entity.Entity.GetField(fieldTypeId).Data <- value.CvlValue.Key
-                            with
-                                // cannot check if value is null, because it cannot be null as it is a record type
-                                // however it can be null because the subtype is not a record and can be null
-                                // in conclusion, null is a bad thing and we want a suitable error message
-                                | :? System.NullReferenceException ->
-                                    if System.String.IsNullOrEmpty(entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue) then 
-                                        failwith (sprintf "Tried to initiate a mandatory constructor parameter %s with null" fieldTypeId)
-                                    else
-                                        () // there is a default value, it will be set in the emptyConsturctor expression
-                            entity
+                                entity
+                            else
+                                // this is an optional constructor parameter
+                                if (value :> obj) = null then
+                                    // use the default value set in empty constructor
+                                    ()
+                                else
+                                    // overwrite default value with provided value
+                                    entity.Entity.GetField(fieldTypeId).Data <- value.CvlValue.Key
+                                entity
                             @>
                     // NOTE one does not simply implement CVL lists
                     | CVL _ | Xml | File -> 
