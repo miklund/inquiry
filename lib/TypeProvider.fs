@@ -158,8 +158,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | File -> typeof<obj>
         | Integer -> typeof<int>
         | LocaleString -> typeof<LocaleString>
-        | String -> typeof<string>
-        | Xml -> typeof<obj>
+        | String | Xml -> typeof<string>
     // Get the Option type for data type
     let toOptionType dataType =
         typedefof<Option<_>>.MakeGenericType([|dataType |> toType|])
@@ -221,7 +220,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 |> List.fold (fun entityExpr (fieldType, argExpr) ->
                     let fieldTypeId = fieldType.Id
                     match DataType.parse (fieldType.DataType, fieldType.CVLId) with
-                    | String ->
+                    | String | Xml ->
                         <@
                             let entity = (% entityExpr : Entity)
                             let value = (%% argExpr : string)
@@ -231,8 +230,13 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                             else
                                 // this is an optional constructor parameter
                                 if (value :> obj) = null then
-                                    // use the default value set in empty constructor
-                                    ()
+                                    // use the default value
+                                    // NOTE we cannot trust the default constructor to set a default value
+                                    // for XML because the Remoting API seems broken in this aspect. This
+                                    // means if you have a mandatory XML value, you will not be able to
+                                    // create entities with the default value.
+                                    // We fix this here by setting the default value explicitly.
+                                    entity.Entity.GetField(fieldTypeId).Data <- entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue
                                 else
                                     // overwrite default value with provided value
                                     entity.Entity.GetField(fieldTypeId).Data <- value
@@ -360,8 +364,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                                     entity.Entity.GetField(fieldTypeId).Data <- value.CvlValue.Key
                                 entity
                             @>
-                    // NOTE one does not simply implement CVL lists
-                    | CVL _ | Xml | File -> 
+                    | File -> 
                         <@ (% entityExpr : Entity) @>
                     ) emptyConstructorExpr
             <@@ %_constructorExpression @@>
@@ -503,7 +506,6 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
 
     let fieldToProperty (fieldType : Objects.FieldType) propertyName =
         let fieldTypeID = fieldType.Id
-        //let propertyName = createPropertyName fieldTypeID
 
         // TODO Refactor this because it is ugly as F#ck
         if fieldType.Mandatory then
@@ -516,6 +518,8 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | Boolean as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
             | Double as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
             | CVL id as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> uncheckedExpression))
+            | Xml as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
+
             // TODO Throw exception here when all the types have been handled
             | _ -> ProvidedProperty(propertyName, typeof<obj>, [], GetterCode = ((objValueExpression fieldTypeID) >> uncheckedExpression))
         else
@@ -528,6 +532,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | Boolean as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
             | Double as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
             | CVL id  as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
+            | Xml as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
             // TODO Throw exception here when all the types have been handled
             | _ -> ProvidedProperty(propertyName, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
 

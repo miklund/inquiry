@@ -47,6 +47,12 @@ newProduct.Save() |> ignore
 * Implement Hidden
 * Implement Exclude from Default View
 * Create fsi files to protect internal members of the library
+* Implement multivalue CVL fields
+* Write example on
+  - How to work with the XML field, query and update it
+  - How to filter out specific fieldsets
+  - How to filter out categories
+  - How to read and write properties
 
 v0.1
 
@@ -62,5 +68,4 @@ ignore <| Product.Save(product)
 * Setup an example project with the following examples
   - How to create and add a new product to inriver by FSX
   - How to write an import extension importing data from XML to inRiver
-* Implement data type XML
 * Implement data type File
