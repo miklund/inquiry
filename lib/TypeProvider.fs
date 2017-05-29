@@ -118,6 +118,7 @@ type Entity (entityType, entity : Objects.Entity)  =
         match entity.GetField(fieldTypeId) with
         // expected a field, but it is not there
         | null -> failwith (sprintf "Field %s was not set on entity %s:%d" fieldTypeId entityType.Id entity.Id)
+        //| null -> failwith (sprintf "Field %s was not set on entity %s:%d" fieldTypeId entityType.Id entity.Id)
         | field -> field.Data
 
     member this.NewFiles =
@@ -426,9 +427,6 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                                 failwith (sprintf "Unable to create %s with %s as null value" entity.EntityType.Id fieldTypeId)
                             else
                                 entity.setFile fieldTypeId file
-                                // TODO remove this
-                                //let fileId = inRiverService.createFile file.fileName file.data
-                                //entity.Entity.GetField(fieldTypeId).Data <- fileId
                             entity
                             @>
                     ) emptyConstructorExpr
@@ -603,32 +601,36 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
 
     let fieldToProperty (fieldType : Objects.FieldType) propertyName =
         let fieldTypeID = fieldType.Id
+        let dataType = DataType.parse (fieldType.DataType, fieldType.CVLId)
 
-        // TODO Refactor this because it is ugly as F#ck
-        if fieldType.Mandatory then
-            // mandatory property
-            match DataType.parse (fieldType.DataType, fieldType.CVLId) with
-            | String as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
-            | LocaleString as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
-            | DateTime as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> uncheckedExpression))
-            | Integer as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> uncheckedExpression))
-            | Boolean as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
-            | Double as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
-            | CVL id as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> uncheckedExpression))
-            | Xml as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
-            | File as dataType -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
-        else
-            // optional property
-            match DataType.parse (fieldType.DataType, fieldType.CVLId) with
-            | String as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
-            | LocaleString as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
-            | DateTime as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
-            | Integer as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
-            | Boolean as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
-            | Double as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
-            | CVL id  as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
-            | Xml as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
-            | File as dataType -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
+        // match on data types and if fieldType is mandatory or not
+        match dataType, fieldType.Mandatory with
+        | String, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
+        | String, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
+        
+        // LocaleString properties will be the same independently if it's mandatory or not
+        | LocaleString, _ -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
+
+        | DateTime, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> uncheckedExpression))
+        | DateTime, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
+        
+        | Integer, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> uncheckedExpression))
+        | Integer, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
+        
+        | Boolean, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
+        | Boolean, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
+        
+        | Double, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
+        | Double, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
+        
+        | CVL id, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> uncheckedExpression))
+        | CVL id, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
+        
+        | Xml, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
+        | Xml, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
+        
+        // File properties are same independently on mandatory parameter, right now Files should always be mandatory
+        | File, _ -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type

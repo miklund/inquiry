@@ -70,7 +70,3 @@ ignore <| Product.Save(product)
 * Setup an example project with the following examples
   - How to create and add a new product to inriver by FSX
   - How to write an import extension importing data from XML to inRiver
-
-Refactor
-  - Fix all todos
-  - failwith is always used with sprintf, make a failwithf
