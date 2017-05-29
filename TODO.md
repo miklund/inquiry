@@ -53,6 +53,8 @@ newProduct.Save() |> ignore
   - How to filter out specific fieldsets
   - How to filter out categories
   - How to read and write properties
+* Make the Resource integrated with its data
+* Xml field should be represented by XDocument and not string, string is the DTO data type
 
 v0.1
 
@@ -68,4 +70,7 @@ ignore <| Product.Save(product)
 * Setup an example project with the following examples
   - How to create and add a new product to inriver by FSX
   - How to write an import extension importing data from XML to inRiver
-* Implement data type File
+
+Refactor
+  - Fix all todos
+  - failwith is always used with sprintf, make a failwithf

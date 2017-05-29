@@ -76,6 +76,7 @@
     <Compile Include="Campaign.fs" />
     <Compile Include="CampaignType.fs" />
     <Compile Include="FashionMaterial.fs" />
+    <Compile Include="Resource.fs" />
     <Compile Include="Product.fs" />
     <Compile Include="TestEntity.fs" />
     <Content Include="App.config" />

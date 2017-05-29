@@ -44,6 +44,15 @@ let uncheckedExpression (valueExpression : Expr<'a>) =
 // simplify the Objects.LocaleString to an immutable map
 type LocaleString = Map<string, string>
 
+// the file description is used when creating a file reference
+type File = 
+    // a new file is a fileName and file data
+    | New of string * byte array
+    // an already persisted file is just data
+    | Persisted of byte array
+    
+type FileCache = Map<string, File>
+
 // the available field data types
 type DataType = 
     | Boolean 
@@ -70,6 +79,17 @@ type DataType with
         | "Xml", _ -> Xml
         | dt, _ -> failwith (sprintf "Unknown field data type: %s" dt)
 
+
+// remove the fileId suffix
+let fileNameFieldConvention (fieldType : Objects.FieldType) (input : string) =
+    // if field type is  File
+    if (fieldType.DataType, fieldType.CVLId) |> DataType.parse = File then
+        // replace the Id suffix with Data
+        System.Text.RegularExpressions.Regex.Replace(input, "Id$", "Data")
+    else
+        // otherwise return as it is
+        input
+
 // cvl stands for Custom Value List
 type CVLNode (cvlType : Objects.CVL, cvlValue : Objects.CVLValue) = 
     member this.DataType = (cvlType.DataType, cvlValue.CVLId) |> DataType.parse
@@ -86,6 +106,8 @@ type CVLNode (cvlType : Objects.CVL, cvlValue : Objects.CVLValue) =
 // this is the entity value that is returned from the type provider
 type Entity (entityType, entity : Objects.Entity)  =
 
+    let mutable files : FileCache = Map.empty<string, File>
+
     // only called with entityType, create a new entity
     new(entityType) = Entity(entityType, Objects.Entity.CreateEntity(entityType))
 
@@ -98,7 +120,31 @@ type Entity (entityType, entity : Objects.Entity)  =
         | null -> failwith (sprintf "Field %s was not set on entity %s:%d" fieldTypeId entityType.Id entity.Id)
         | field -> field.Data
 
+    member this.NewFiles =
+        files
+        |> Map.toSeq
+        // find all new files
+        |> Seq.choose 
+            (fun (fileTypeId, file) -> 
+                match file with 
+                | New (fileName, data) -> Some (fileTypeId, fileName, data) 
+                | _ -> None
+            )
 
+    member this.getFileData fileTypeId =
+        match files |> Map.tryFind fileTypeId with
+        | None -> None
+        // it is a new file
+        | Some (New (fileName, data)) -> Some data
+        // it is an old file
+        | Some (Persisted data) -> Some data
+
+    member this.setFile (fieldTypeId : string) (file : File) = files <- files.Add(fieldTypeId, file)
+
+    member this.setPersistedFileData (fieldTypeId : string) (data : byte array) =
+        files <- files.Add(fieldTypeId, Persisted data)
+        files
+    
     member this.Entity = entity
     
     // default properties
@@ -142,7 +188,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
     let mandatoryFieldTypes =
         entityType.FieldTypes
         // filter out only mandatory fields
-        |> Seq.filter (fun fieldType -> fieldType.Mandatory)
+        |> Seq.filter (fun fieldType -> fieldType.Mandatory || fieldType.ReadOnly)
         // make sure they're sorted by index
         |> Seq.sortBy (fun fieldType -> fieldType.Index)
         // change their orders so mandatory without default value comes first
@@ -155,7 +201,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | CVL id -> cvlTypes |> List.find (fun t -> t.Name = id) :> Type
         | DateTime -> typeof<System.DateTime>
         | Double -> typeof<double>
-        | File -> typeof<obj>
+        | File -> typeof<File>
         | Integer -> typeof<int>
         | LocaleString -> typeof<LocaleString>
         | String | Xml -> typeof<string>
@@ -169,14 +215,21 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         // a constructor parameter name should remove the leading entityTypeID and make camel case
         let providedParameterNamingConvention fieldTypeID = 
             // the function that creates the identifier
-            let providedParameterNamingConvention_ id = (fieldNamingConvention entityType.Id id) |> toCamelCase
+            let namingConvention = 
+                // remove entity id from field name
+                (fieldNamingConvention entityType.Id) >>
+                // change Id suffix to Data if DataType is file
+                (fileNameFieldConvention (entityType.FieldTypes |> Seq.find (fun ft -> ft.Id = fieldTypeID))) >>
+                // make it camel case
+                toCamelCase
+
             // the expected identifier
-            let result = providedParameterNamingConvention_ fieldTypeID
+            let result = namingConvention fieldTypeID
             // another field will become the same parameter name
             let hasConflictingField = 
                 entityType.FieldTypes 
                 |> Seq.filter (fun ft -> fieldTypeID <> ft.Id)
-                |> Seq.exists (fun ft -> result = (providedParameterNamingConvention_ ft.Id))
+                |> Seq.exists (fun ft -> result = (namingConvention ft.Id))
             // return
             if hasConflictingField then
                 // there is a conflict, return the original, but to camel case
@@ -365,7 +418,19 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                                 entity
                             @>
                     | File -> 
-                        <@ (% entityExpr : Entity) @>
+                        <@ 
+                            let entity = (% entityExpr : Entity)
+                            let file = (%% argExpr : File)
+                            
+                            if (file :> obj) = null then
+                                failwith (sprintf "Unable to create %s with %s as null value" entity.EntityType.Id fieldTypeId)
+                            else
+                                entity.setFile fieldTypeId file
+                                // TODO remove this
+                                //let fileId = inRiverService.createFile file.fileName file.data
+                                //entity.Entity.GetField(fieldTypeId).Data <- fileId
+                            entity
+                            @>
                     ) emptyConstructorExpr
             <@@ %_constructorExpression @@>
     
@@ -389,6 +454,12 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         <@@
             let entity = (%% args.[0] : Entity)
             try
+                // must save files first
+                entity.NewFiles
+                |> Seq.map (fun (fieldTypeId, fileName, data) -> fieldTypeId, inRiverService.createFile fileName data)
+                // update the entity
+                |> Seq.iter (fun (fieldTypeId, fileId) -> entity.Entity.GetField(fieldTypeId).Data <- fileId)
+
                 // save to inRiver -> wrap result entity in TEntity instance
                 Ok (Entity(inRiverService.save(entity.Entity)))
             with
@@ -475,6 +546,25 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             CVLNode(cvlType, cvlValue)
             @>
 
+    let fileValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@
+            // get the entity
+            let entity = (%%(args.[0]) : Entity)
+
+            match entity.getFileData fieldTypeID with
+            | Some data -> data                
+            | None ->
+                // get the file id
+                let fileId = entity.Entity.GetField(fieldTypeID).Data :?> int
+                // get the file data
+                let data = inRiverService.getFile fileId
+                // store the value in internal cache and return
+                ignore <| entity.setPersistedFileData fieldTypeID data
+                // return data
+                data
+            @>
+
     let objValueExpression fieldTypeID =
         fun (args : Expr list) ->
         <@
@@ -488,14 +578,21 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
     // Example: A Product entity with the field ProductCreatedBy would conflict with the Entity.CreatedBy property
     // Example: A Product entity with the field ProductAuthor and the field Author would conflict with each other
     let createPropertyName fieldTypeID =
-        let result = fieldNamingConvention entityType.Id fieldTypeID
+        let namingConvention =
+            // remove the entity type id from field name
+            (fieldNamingConvention entityType.Id) >>
+            // remove Id suffix if field type is File
+            (fileNameFieldConvention (entityType.FieldTypes |> Seq.find (fun ft -> ft.Id = fieldTypeID)))
+        
+        let result = namingConvention fieldTypeID
+
         // there is a property already on the Entity type matching this name
         let hasFixedProperty = typeof<Entity>.GetProperty(result) <> null
         // another field will become the same property
         let hasConflictingField = 
             entityType.FieldTypes 
             |> Seq.filter (fun ft -> fieldTypeID <> ft.Id)
-            |> Seq.exists (fun ft -> result = (fieldNamingConvention ft.EntityTypeId ft.Id))
+            |> Seq.exists (fun ft -> result = (namingConvention ft.Id))
         
         if hasFixedProperty || hasConflictingField then
             // there is a conflict, return the original property name
@@ -519,9 +616,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | Double as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
             | CVL id as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> uncheckedExpression))
             | Xml as dataType -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
-
-            // TODO Throw exception here when all the types have been handled
-            | _ -> ProvidedProperty(propertyName, typeof<obj>, [], GetterCode = ((objValueExpression fieldTypeID) >> uncheckedExpression))
+            | File as dataType -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
         else
             // optional property
             match DataType.parse (fieldType.DataType, fieldType.CVLId) with
@@ -533,8 +628,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | Double as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
             | CVL id  as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
             | Xml as dataType -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
-            // TODO Throw exception here when all the types have been handled
-            | _ -> ProvidedProperty(propertyName, typeof<Option<obj>>, [], GetterCode = ((objValueExpression fieldTypeID) >> optionPropertyExpression))
+            | File as dataType -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type

@@ -73,6 +73,12 @@ module inRiverService =
         |> Seq.map snd
         |> Seq.tryFind (fun cvlValue -> cvlValue.CVLId = cvlId && cvlValue.Key = key)
         
+    // get file
+    let getFile fileId =
+        RemoteManager.UtilityService.GetFile(fileId, "Original")
+
+    let createFile fileName data =
+        RemoteManager.UtilityService.AddFile(fileName, data)
 
     // save entity to inriver
     let save (entity : Objects.Entity) =

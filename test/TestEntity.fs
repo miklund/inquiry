@@ -69,7 +69,6 @@ let ``Saving an entity will persist the entity in inRiver`` () =
     // arrange
     let name = "Test-" + System.DateTime.Now.Ticks.ToString()
     let instance = Test(name)
-    printfn "Test.xml = %s" instance.Xml
     // act
     let savedInstance = match Test.Save(instance) with
                         | Ok entity -> entity
