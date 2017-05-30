@@ -650,7 +650,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
 
         // save method
         let saveMethodReturnType = typedefof<Result<_,_>>.MakeGenericType([|(typeDefinition :> Type); typeof<Exception>|])
-        let saveMethod = ProvidedMethod("Save", [ProvidedParameter("entity", typeDefinition)], saveMethodReturnType)
+        let saveMethod = ProvidedMethod("save", [ProvidedParameter("entity", typeDefinition)], saveMethodReturnType)
         saveMethod.IsStaticMethod <- true
         saveMethod.InvokeCode <- saveExpression
         typeDefinition.AddMember saveMethod

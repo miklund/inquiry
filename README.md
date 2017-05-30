@@ -23,10 +23,8 @@ Entity createdProduct = RemoteManager.DataService.AddEntity(product);
 The same thing with inQuiry.
 
 ```fsharp
-// Create a new product
-let product = Product(number = "ANewProductNumber")
-// Save to PIM
-ignore <| Product.Save(product)
+// Create a new product and save it
+Product(number = "ANewProductNumber") |> Product.save
 ```
 
 The strong type `Product` is generated from the entity information in the

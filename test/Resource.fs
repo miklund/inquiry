@@ -37,7 +37,7 @@ let ``Saving a Resource will also save the file data to utility service`` () =
     let file = New ("test.dat", data)
     let instance = pim.Resource(fileData = file)
     // act
-    ignore <| pim.Resource.Save instance
+    ignore <| pim.Resource.save instance
     let fileId = instance.Entity.GetField("ResourceFileId").Data :?> int
     // assert
     test <@ inRiverService.getFile fileId = data @>

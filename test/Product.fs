@@ -46,7 +46,7 @@ let ``Saving a product will return an updated Product with new Id`` () =
     let productNumber = "SKU" + DateTime.Now.Ticks.ToString()
     let product = pim.Product(number = productNumber)
     // act
-    let newProduct = match pim.Product.Save(product) with
+    let newProduct = match pim.Product.save(product) with
                      | Ok entity -> entity
                      | Error ex -> failwith ex.Message
     // assert

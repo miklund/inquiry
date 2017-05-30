@@ -33,7 +33,7 @@ The purpose of v0.2 is to retrieve a single entity, change it and save it back t
 ```fsharp
 let product = Product.GetByNumber("SKU123")
 let newProduct = { product | Number = "SKU 456"}
-newProduct.Save() |> ignore
+newProduct.save() |> ignore
 ```
 
 * Deal with relations between entities, handle links
@@ -62,7 +62,7 @@ The goal with this version is to provide the functionality to do the following.
 
 ```fsharp
 let product = Product(number = "ANewProductNumber")
-ignore <| Product.Save(product)
+ignore <| Product.save(product)
 ```
 
 * Setup a nuget package

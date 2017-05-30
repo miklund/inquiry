@@ -72,7 +72,7 @@ let ``Saving an entity will persist the entity in inRiver`` () =
     let name = "Test-" + System.DateTime.Now.Ticks.ToString()
     let instance = pim.Test(name)
     // act
-    let savedInstance = match pim.Test.Save(instance) with
+    let savedInstance = match pim.Test.save(instance) with
                         | Ok entity -> entity
                         | Error ex -> failwith ex.Message
     // assert
