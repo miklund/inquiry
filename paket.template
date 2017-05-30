@@ -1,0 +1,26 @@
+type file
+id inQuiry
+version 0.1.0
+authors Mikael Lundin
+projectUrl https://github.com/miklund/inquiry
+licenceUrl https://raw.githubusercontent.com/miklund/inquiry/master/LICENSE.txt
+tags inQuiry inRiver PIM type provider
+description
+	inQuiry is an F# type provider for inRiver PIM. The purpose is to provide a strongly typed alternative to the Remoting API that requires less coding, ease of use and security. This is done by generating types in compile time that will supply most of the boilerplate coding needed for the	Remoting API.
+releaseNotes
+	This first release of inQuiry is more of a prototype than a complete library. It
+	is proven that's possible to create a type provider with inRiver as target and
+	the library actually provides the promises of less code, ease of use and security.
+	This release focuses on creating entities in inRiver. You can create new entities
+	and save them. Functionality that has been omitted is being able to get existing
+	entities from inRiver, updating, deleting or to query for entities. This will come
+	in a later release.
+files
+	output/build/inQuiry.dll ==> lib
+	output/build/inRiver.Remoting.dll ==> lib
+	output/build/App.config.transform ==> content
+dependencies
+	System.ValueTuple ~> 4.3.0
+references
+	inQuiry.dll
+	inRiver.Remoting.dll

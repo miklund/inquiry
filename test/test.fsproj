@@ -76,12 +76,12 @@
     <Compile Include="Campaign.fs" />
     <Compile Include="CampaignType.fs" />
     <Compile Include="FashionMaterial.fs" />
+    <Compile Include="Industry.fs" />
     <Compile Include="Resource.fs" />
     <Compile Include="Product.fs" />
     <Compile Include="TestEntity.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
-    <Compile Include="Industry.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core, Version=4.4.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />

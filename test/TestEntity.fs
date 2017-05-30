@@ -12,17 +12,19 @@ open Swensen.Unquote
 open inRiver.Remoting
 open inQuiry
 
+type pim = inRiverProvider<"http://localhost:8080", "pimuser1", "pimuser1">
+
 [<Fact>]
 let ``When field TestName is conflicting with field Name then only camel case convention should apply in constructor`` () =
     // act
-    let instance = Test(testName = "Hello", name = "World")
+    let instance = pim.Test(testName = "Hello", name = "World")
     // assert
     test <@ instance <> null @>
 
 [<Fact>]
 let ``When field TestName is conflicting with field Name then no conventions should apply to properties`` () =
     // act
-    let instance = Test(testName = "Hello", name = "World")
+    let instance = pim.Test(testName = "Hello", name = "World")
     // assert
     test <@ instance.TestName = "Hello" @>
     test <@ instance.Name = "World" @>
@@ -30,7 +32,7 @@ let ``When field TestName is conflicting with field Name then no conventions sho
 [<Fact>]
 let ``When field TestCreatedBy is conflicting with Entity property CreatedBy then no conventions should apply to property`` () =
     // act
-    let instance = Test("", "")
+    let instance = pim.Test("", "")
     // assert
     test <@ instance.TestCreatedBy = None @>
 
@@ -39,7 +41,7 @@ let ``When field type is mandatory but a default value has been supplied then co
     // arrange
     let defaultValue = "Hello World!"
     // act
-    let instance = Test("")
+    let instance = pim.Test("")
     // assert
     test <@ instance.TestName = defaultValue @>
 
@@ -48,7 +50,7 @@ let ``When field type is mandatory and has a default value but is supplied with 
     // arrange
     let testNameValue = "Another World!"
     // act
-    let instance = Test("", testName = testNameValue)
+    let instance = pim.Test("", testName = testNameValue)
     // assert
     test <@ instance.TestName = testNameValue @>
 
@@ -60,7 +62,7 @@ let ``Setting a non mandatory field TestDescription will set Some value at prope
     let entity = Objects.Entity.CreateEntity(entityType)
     entity.GetField("TestDescription").Data <- testData
     // act
-    let instance = Test.Create(entity)
+    let instance = pim.Test.Create(entity)
     // assert
     test <@ instance.Description = Some testData @>
 
@@ -68,9 +70,9 @@ let ``Setting a non mandatory field TestDescription will set Some value at prope
 let ``Saving an entity will persist the entity in inRiver`` () =
     // arrange
     let name = "Test-" + System.DateTime.Now.Ticks.ToString()
-    let instance = Test(name)
+    let instance = pim.Test(name)
     // act
-    let savedInstance = match Test.Save(instance) with
+    let savedInstance = match pim.Test.Save(instance) with
                         | Ok entity -> entity
                         | Error ex -> failwith ex.Message
     // assert
@@ -82,7 +84,7 @@ let ``Name is DisplayDescription`` () =
     // arrange
     let name = "Once upon a time"
     // act
-    let instance = Test(name)
+    let instance = pim.Test(name)
     // assert
     test <@ instance.Name = instance.DisplayDescription @>
 
@@ -91,6 +93,6 @@ let ``TestXML should be able to set XML value from constructor`` () =
     // arrange
     let xml = "<root><name>Bertil</name></root>"
     // act
-    let instance = Test("XmlTest", xml = xml)
+    let instance = pim.Test("XmlTest", xml = xml)
     // assert
     test <@ instance.Xml = xml @>

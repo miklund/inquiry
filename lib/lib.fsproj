@@ -311,6 +311,9 @@
     <Compile Include="TypeProvider.fs" />
     <None Include="paket.references" />
     <Content Include="App.config" />
+    <None Include="App.config.transform">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="inRiver.Remoting">

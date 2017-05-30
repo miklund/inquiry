@@ -8,13 +8,15 @@ open Swensen.Unquote
 open inRiver.Remoting
 open inQuiry
 
+type pim = inRiverProvider<"http://localhost:8080", "pimuser1", "pimuser1">
+
 [<Fact>]
 let ``Creating a resource should make the data available through its property`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
     let file = New ("test.dat", data)
     // act
-    let instance = Resource(fileData = file)
+    let instance = pim.Resource(fileData = file)
     // assert
     test <@ instance.FileData = data @>
 
@@ -24,7 +26,7 @@ let ``Creating a resource will not save the file`` () =
     let data = [| for i in [65..74] -> byte(i) |]
     let file = New ("test.dat", data)
     // act
-    let instance = Resource(fileData = file)
+    let instance = pim.Resource(fileData = file)
     // assert
     test <@ instance.Entity.GetField("ResourceFileId").Data = null @>
 
@@ -33,9 +35,9 @@ let ``Saving a Resource will also save the file data to utility service`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
     let file = New ("test.dat", data)
-    let instance = Resource(fileData = file)
+    let instance = pim.Resource(fileData = file)
     // act
-    ignore <| Resource.Save instance
+    ignore <| pim.Resource.Save instance
     let fileId = instance.Entity.GetField("ResourceFileId").Data :?> int
     // assert
     test <@ inRiverService.getFile fileId = data @>

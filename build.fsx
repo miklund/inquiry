@@ -2,7 +2,11 @@
 open Fake
 open Fake.Testing
 
-let buildDir = "./build/"
+let outputDir = "./output/"
+let outputBuildDir = outputDir + "build/"
+let outputTestDir = outputDir + "test/"
+let outputPackDir = outputDir + "pack/"
+
 let libDir = "./lib/"
 let testDir = "./test/"
 let refDir = "./References/"
@@ -11,29 +15,43 @@ let typeProvidersStarterPackDir = "./paket-files/fsprojects/FSharp.TypeProviders
 let xUnitToolPath = "./packages/xunit.runner.console/tools/xunit.console.exe"
 
 Target "Clean" (fun _ ->
-    CleanDir buildDir
+    !! outputDir
+    ++ outputBuildDir
+    ++ outputTestDir
+    ++ outputPackDir
+    |> CleanDirs
 )
 
-Target "inQuiry.dll" (fun _ ->
+Target "BuildLib" (fun _ ->
     !! (libDir + "lib.fsproj")
-    |> MSBuildRelease buildDir "Build"
+    |> MSBuildRelease outputBuildDir "Build"
     |> Log "AppBuild-Output"
 )
 
-Target "inQuiry.Test.dll" (fun _ ->
+Target "BuildTest" (fun _ ->
     !! (testDir + "test.fsproj")
-    |> MSBuildRelease buildDir "Build"
+    |> MSBuildRelease outputTestDir "Build"
     |> Log "AppBuild-Output"
 )
 
 Target "RunTests" (fun _ ->
-    !! (buildDir @@ "inQuiry.Test.dll")
+    !! (outputTestDir @@ "inQuiry.Test.dll")
       |> xUnit (fun p -> { p with ToolPath = xUnitToolPath})
 )
 
+Target "Package" (fun _ ->
+    Paket.Pack (fun p ->
+        { p with 
+            ToolPath = ".paket/paket.exe"
+            OutputPath = outputPackDir
+            TemplateFile = "./paket.template"
+            })
+)
+
 "Clean"
-   ==> "inQuiry.dll"
-   ==> "inQuiry.Test.dll"
-   ==> "RunTests"
+   ==> "BuildLib"
+    ==> "Package"
+   ==> "BuildTest"
+    ==> "RunTests"
 
 RunTargetOrDefault "RunTests"

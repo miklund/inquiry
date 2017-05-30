@@ -10,11 +10,13 @@ open Swensen.Unquote
 open inRiver.Remoting
 open inQuiry
 
+type pim = inRiverProvider<"http://localhost:8080", "pimuser1", "pimuser1">
+
 [<Fact>]
 let ``Can get ChangeSet property`` () =
     // arrange
     let expectedChangeSet = 123
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.ChangeSet <- expectedChangeSet
     // assert
@@ -24,7 +26,7 @@ let ``Can get ChangeSet property`` () =
 let ``Can get Completeness property`` () =
     // arrange
     let expectedCompleteness = 7
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.Completeness <- System.Nullable(expectedCompleteness)
     // assert
@@ -34,7 +36,7 @@ let ``Can get Completeness property`` () =
 let ``Can get CreatedBy property`` () =
     // arrange
     let expectedCreatedBy = "pimuser1"
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.CreatedBy <- expectedCreatedBy
     // assert
@@ -44,7 +46,7 @@ let ``Can get CreatedBy property`` () =
 let ``Can get DateCreated property`` () =
     // arrange
     let expectedDateCreated = System.DateTime.Now
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.DateCreated <- expectedDateCreated
     // assert
@@ -54,7 +56,7 @@ let ``Can get DateCreated property`` () =
 let ``Can get FieldSetId property`` () =
     // arrange
     let expectedFieldSetId = "General"
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.FieldSetId <- expectedFieldSetId
     // assert
@@ -64,7 +66,7 @@ let ``Can get FieldSetId property`` () =
 let ``Can get Id property`` () =
     // arrange
     let expectedId = 123
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.Id <- expectedId
     // assert
@@ -74,7 +76,7 @@ let ``Can get Id property`` () =
 let ``Can get LastModified property`` () =
     // arrange
     let expectedLastModified = System.DateTime.Now
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.LastModified <- expectedLastModified
     // assert
@@ -84,7 +86,7 @@ let ``Can get LastModified property`` () =
 let ``Can get LoadLevel property`` () =
     // arrange
     let expectedLoadLevel = Objects.LoadLevel.DataOnly
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.LoadLevel <- expectedLoadLevel
     // assert
@@ -94,7 +96,7 @@ let ``Can get LoadLevel property`` () =
 let ``Can get Locked property`` () =
     // arrange
     let expectedLocked = "Locked"
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.Locked <- expectedLocked
     // assert
@@ -104,7 +106,7 @@ let ``Can get Locked property`` () =
 let ``Can get MainPictureId property`` () =
     // arrange
     let expectedMainPictureId = 1337
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.MainPictureId <- System.Nullable(expectedMainPictureId)
     // assert
@@ -114,7 +116,7 @@ let ``Can get MainPictureId property`` () =
 let ``Can get ModifiedBy property`` () =
     // arrange
     let expectedModifiedBy = "pimuser1"
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.ModifiedBy <- expectedModifiedBy
     // assert
@@ -124,7 +126,7 @@ let ``Can get ModifiedBy property`` () =
 let ``Can get Version property`` () =
     // arrange
     let expectedVersion = 5
-    let instance = Test("Required Value")
+    let instance = pim.Test("Required Value")
     // act
     instance.Entity.Version <- expectedVersion
     // assert

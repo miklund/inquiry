@@ -7,10 +7,12 @@ open Swensen.Unquote
 open inRiver.Remoting
 open inQuiry
 
+type pim = inRiverProvider<"http://localhost:8080", "pimuser1", "pimuser1">
+
 [<Fact>]
 let ``CampaignType should have property campaign`` () =
     // act
-    let campaignType = CampaignType.campaign
+    let campaignType = pim.CampaignType.campaign
     // assert
     test <@ campaignType.value |> Map.find "en" = "Campaign" @>
     test <@ campaignType.value |> Map.find "sv" = "Kampanj" @>
@@ -21,7 +23,7 @@ let ``CampaignType should have property campaign`` () =
 [<Fact>]
 let ``CampaignType should have property sale`` () =
     // act
-    let campaignType = CampaignType.sale
+    let campaignType = pim.CampaignType.sale
     // assert
     test <@ campaignType.value |> Map.find "en" = "Sale" @>
     test <@ campaignType.value |> Map.find "sv" = "Försäljning" @>
@@ -32,7 +34,7 @@ let ``CampaignType should have property sale`` () =
 [<Fact>]
 let ``CampaignType should have property release`` () =
     // act
-    let campaignType = CampaignType.release
+    let campaignType = pim.CampaignType.release
     // assert
     test <@ campaignType.value |> Map.find "en" = "Product Release" @>
     test <@ campaignType.value |> Map.find "sv" = "Produktlansering" @>

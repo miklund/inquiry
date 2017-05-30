@@ -634,7 +634,8 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type
-        let typeDefinition = ProvidedTypeDefinition(assembly, ns, entityType.Id, Some typeof<Entity>)
+        //let typeDefinition = ProvidedTypeDefinition(assembly, ns, entityType.Id, Some typeof<Entity>)
+        let typeDefinition = ProvidedTypeDefinition(entityType.Id, Some typeof<Entity>)
         typeDefinition.HideObjectMethods <- true;
         
         // create a constructor
@@ -724,7 +725,8 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
         
     member this.createProvidedTypeDefinition assembly ns =
         // create the type
-        let typeDefinition = ProvidedTypeDefinition(assembly, ns, cvlType.Id, Some typeof<CVLNode>)
+        //let typeDefinition = ProvidedTypeDefinition(assembly, ns, cvlType.Id, Some typeof<CVLNode>)
+        let typeDefinition = ProvidedTypeDefinition(cvlType.Id, Some typeof<CVLNode>)
         typeDefinition.HideObjectMethods <- true;
 
         // create values as static properties
@@ -742,26 +744,51 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
 
 
 [<TypeProvider>]
-type InRiverProvider(config : TypeProviderConfig) as this =
+type inRiverProvider(config : TypeProviderConfig) as this =
     inherit TypeProviderForNamespaces()
 
     let ns = "inQuiry.Model"
-    let assembly = Assembly.GetExecutingAssembly()
+    let asm = Assembly.GetExecutingAssembly()
 
-    let cvlTypes =
-        inRiverService.getCvlTypes()
-            |> Seq.map (fun cvl -> CvlTypeFactory(cvl).createProvidedTypeDefinition assembly ns)
-            |> Seq.toList
+    let inRiverProvider = ProvidedTypeDefinition(asm, ns, "inRiverProvider", Some(typeof<obj>))
     
-    // get the entity types from InRiver Model Service
-    let entityTypes = 
-        inRiverService.getEntityTypes() 
-            |> Seq.map (fun et -> EntityTypeFactory(cvlTypes, et).createProvidedTypeDefinition assembly ns)
-            |> Seq.toList
+    let parameters = 
+        [ ProvidedStaticParameter("host", typeof<string>)
+        ; ProvidedStaticParameter("userName", typeof<string>)
+        ; ProvidedStaticParameter("password", typeof<string>)
+        ]
+    
+    do inRiverProvider.DefineStaticParameters(parameters, fun typeName args ->
+        let host = args.[0] :?> string
+        let userName = args.[1] :?> string
+        let password = args.[2] :?> string
 
-    do
-        this.AddNamespace(ns, entityTypes @ cvlTypes)
+        inRiverService.host <- host
+        inRiverService.userName <- userName
+        inRiverService.password <- password
 
+        // internal provider
+        let provider = ProvidedTypeDefinition(asm, ns, typeName, Some typeof<obj>, HideObjectMethods = true)
+        
+        let cvlTypes =
+            inRiverService.getCvlTypes()
+                |> Seq.map (fun cvl -> CvlTypeFactory(cvl).createProvidedTypeDefinition asm ns)
+                |> Seq.toList
+    
+        // get the entity types from InRiver Model Service
+        let entityTypes = 
+            inRiverService.getEntityTypes() 
+                |> Seq.map (fun et -> EntityTypeFactory(cvlTypes, et).createProvidedTypeDefinition asm ns)
+                |> Seq.toList
+
+        provider.AddMembers(entityTypes @ cvlTypes)
+
+        // return
+        provider
+    )
+
+    do this.AddNamespace(ns, [inRiverProvider])
+    
     
 [<assembly:TypeProviderAssembly>] 
 do()

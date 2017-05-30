@@ -8,17 +8,19 @@ open Swensen.Unquote
 open inRiver.Remoting
 open inQuiry
 
+type pim = inRiverProvider<"http://localhost:8080", "pimuser1", "pimuser1">
+
 [<Fact>]
 let ``Should be able to create a new instance of product`` () =
     // act
-    let instance = Product("ABC123", ProductStatus.webready, false)
+    let instance = pim.Product("ABC123", pim.ProductStatus.webready, false)
     // assert
-    test <@ instance.GetType() = typeof<Product> @>
+    test <@ instance.GetType() = typeof<pim.Product> @>
 
 [<Fact>]
 let ``Mandatory parameter ProductNumber injected in constructor should be set to entity`` () =
     // act
-    let instance = Product("ABC123", ProductStatus.printready, false)
+    let instance = pim.Product("ABC123", pim.ProductStatus.printready, false)
     // assert
     test <@ instance.Number = "ABC123" @>
 
@@ -27,24 +29,24 @@ let ``Mandatory parameter ProductApproved injected in constructor should be set 
     // arrange
     let productApproved = true
     // act
-    let instance = Product("ABC123", ProductStatus.underenrichment, productApproved)
+    let instance = pim.Product("ABC123", pim.ProductStatus.underenrichment, productApproved)
     // assert
     test <@ instance.Approved = productApproved @>
 
 [<Fact>]
 let ``Constructor parameters should apply naming conventions removing the word product and use camel case`` () =
     // act
-    let instance = Product(number = "ABC123", status = ProductStatus.webready, approved = true)
+    let instance = pim.Product(number = "ABC123", status = pim.ProductStatus.webready, approved = true)
     // assert
-    test <@ instance.GetType() = typeof<Product> @>
+    test <@ instance.GetType() = typeof<pim.Product> @>
 
 [<Fact>]
 let ``Saving a product will return an updated Product with new Id`` () =
     // arrange
     let productNumber = "SKU" + DateTime.Now.Ticks.ToString()
-    let product = Product(number = productNumber)
+    let product = pim.Product(number = productNumber)
     // act
-    let newProduct = match Product.Save(product) with
+    let newProduct = match pim.Product.Save(product) with
                      | Ok entity -> entity
                      | Error ex -> failwith ex.Message
     // assert
@@ -56,29 +58,29 @@ let ``A product should have localized product name`` () =
     // arrange
     let entity = RemoteManager.DataService.GetEntityByUniqueValue("ProductNumber", "A001", Objects.LoadLevel.DataOnly)
     // act
-    let product = Product.Create(entity)
+    let product = pim.Product.Create(entity)
     // assert
     test <@ product.Name.["en"] = "City Jacket" @>
 
 [<Fact>]
 let ``ProductStatus CVL should be set in the constructor`` () =
     // act
-    let product = Product("ABC123", status = ProductStatus.underenrichment)
+    let product = pim.Product("ABC123", status = pim.ProductStatus.underenrichment)
     // assert
-    test <@ product.Status = ProductStatus.underenrichment @>
+    test <@ product.Status = pim.ProductStatus.underenrichment @>
    
 [<Fact>]
 let ``Default value of ProductStatus should be new`` () =
     // act
-    let product = Product("ABC123")
+    let product = pim.Product("ABC123")
     // assert
-    test <@ product.Status = ProductStatus.``new`` @>
+    test <@ product.Status = pim.ProductStatus.``new`` @>
 
 [<Fact>]
 let ``ProductNumber is the DisplayName`` () =
     // arrange
     let productNumber = "ABC321"
     // act
-    let product = Product(productNumber)
+    let product = pim.Product(productNumber)
     // assert
     test <@ product.Number = product.DisplayName @>

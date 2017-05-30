@@ -11,37 +11,39 @@ open Swensen.Unquote
 open inRiver.Remoting
 open inQuiry
 
+type pim = inRiverProvider<"http://localhost:8080", "pimuser1", "pimuser1">
+
 [<Fact>]
 let ``Should generate a manufacturing property for Industry`` () =
     // act
-    let manufacturing = Industry.manufacturing
+    let manufacturing = pim.Industry.manufacturing
     // assert
     test <@ manufacturing.value |> Map.find "en" = "Manufacturing" @>
 
 [<Fact>]
 let ``Should generate an electronics property for Industry`` () =
     // act
-    let electronics = Industry.electronics
+    let electronics = pim.Industry.electronics
     // assert
     test <@ electronics.value |> Map.find "en" = "Electronics" @>
 
 [<Fact>]
 let ``Should generate a fashionretail property for Industry`` () =
     // act
-    let fashionRetail = Industry.fashionretail
+    let fashionRetail = pim.Industry.fashionretail
     // assert
     test <@ fashionRetail.value |> Map.find "en" = "Fashion/Retail" @>
 
 [<Fact>]
 let ``Should generate a diy property for Industry`` () =
     // act
-    let diy = Industry.diy
+    let diy = pim.Industry.diy
     // assert
     test <@ diy.value |> Map.find "en" = "DIY" @>
 
 [<Fact>]
 let ``Should generate a furniture property for Industry`` () =
     // act
-    let furniture = Industry.furniture
+    let furniture = pim.Industry.furniture
     // assert
     test <@ furniture.value |> Map.find "en" = "Furniture" @>

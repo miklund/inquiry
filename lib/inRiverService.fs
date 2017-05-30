@@ -1,20 +1,39 @@
 ﻿namespace inQuiry
 
-open inRiver.Remoting
-
 // just a wrapper for inRiver.Remoting
 module inRiverService =
+
+    //
+    // configuration
+    //
+    let mutable host = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverHost"]
+    let mutable userName = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverUserName"]
+    let mutable password = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverPassword"]
 
     // initialize the RemoteManager
     // This has some weird behaviours. It will only execute before "first access of a value that has observable initialization"
     // This means that a simple `let` statement does not garantuee the do statement to run
-    //do RemoteManager.CreateInstance(System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverHost"], System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverUserName"], System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverPassword"]) |> ignore
-    do RemoteManager.CreateInstance("http://localhost:8080", "pimuser1", "pimuser1") |> ignore
+    type RemoteManager = { 
+        modelService : inRiver.Remoting.ModelService
+        dataService : inRiver.Remoting.DataService
+        utilService : inRiver.Remoting.UtilityService
+    }
+
+    let remoteManager =
+        Lazy (fun () ->
+            inRiver.Remoting.RemoteManager.CreateInstance(host, userName, password) |> ignore
+            {
+                modelService = inRiver.Remoting.RemoteManager.ModelService
+                dataService = inRiver.Remoting.RemoteManager.DataService
+                utilService = inRiver.Remoting.RemoteManager.UtilityService
+            }
+        )
+ 
 
     // this is a cache of entity types. We only need to get them once, they will not change
     let private entityTypes =
         lazy (
-            RemoteManager.ModelService.GetAllEntityTypes()
+            remoteManager.Force().modelService.GetAllEntityTypes()
                 |> Seq.map (fun entityType -> entityType.Id, entityType)
                 |> Map.ofSeq
         )
@@ -22,14 +41,14 @@ module inRiverService =
     // this is a cache of cvls. We only need to get them once, they will not change
     let private cvlTypes =
         lazy (
-            RemoteManager.ModelService.GetAllCVLs()
+            remoteManager.Force().modelService.GetAllCVLs()
                 |> Seq.map (fun cvlType -> cvlType.Id, cvlType)
                 |> Map.ofSeq
         )
 
     let private cvlValues =
         lazy (
-            RemoteManager.ModelService.GetAllCVLValues()
+            remoteManager.Force().modelService.GetAllCVLValues()
                 |> Seq.map (fun cvlValue -> cvlValue.Id, cvlValue)
                 |> Map.ofSeq
         )
@@ -75,16 +94,16 @@ module inRiverService =
         
     // get file
     let getFile fileId =
-        RemoteManager.UtilityService.GetFile(fileId, "Original")
+        remoteManager.Force().utilService.GetFile(fileId, "Original")
 
     let createFile fileName data =
-        RemoteManager.UtilityService.AddFile(fileName, data)
+        remoteManager.Force().utilService.AddFile(fileName, data)
 
     // save entity to inriver
-    let save (entity : Objects.Entity) =
+    let save (entity : inRiver.Remoting.Objects.Entity) =
         if entity.Id > 0 then
             // updated entity
-            RemoteManager.DataService.UpdateEntity(entity)
+            remoteManager.Force().dataService.UpdateEntity(entity)
         else
             // new entity
-            RemoteManager.DataService.AddEntity(entity)
+            remoteManager.Force().dataService.AddEntity(entity)
