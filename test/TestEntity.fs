@@ -62,7 +62,7 @@ let ``Setting a non mandatory field TestDescription will set Some value at prope
     let entity = Objects.Entity.CreateEntity(entityType)
     entity.GetField("TestDescription").Data <- testData
     // act
-    let instance = pim.Test.Create(entity)
+    let instance = pim.Test.create entity
     // assert
     test <@ instance.Description = Some testData @>
 

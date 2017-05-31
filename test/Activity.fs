@@ -23,7 +23,7 @@ let ``Should be able to create new instance of Activity based on existing entity
     entity.EntityType <- new Objects.EntityType("Activity")
     entity.CreatedBy <- "Mikael Lundin"
     // act
-    let instance = pim.Activity.Create(entity)
+    let instance = pim.Activity.create entity
     // assert
     test <@ instance.CreatedBy = "Mikael Lundin" @>
 
@@ -35,7 +35,7 @@ let ``Should get activity start date (System.DateTime) through generated propert
     let entity = Objects.Entity.CreateEntity(entityType)
     entity.GetField("ActivityStartDate").Data <- testData
     // act
-    let instance = pim.Activity.Create(entity)
+    let instance = pim.Activity.create entity
     // assert
     test <@ instance.StartDate = Some testData @>
 
@@ -46,7 +46,7 @@ let ``Should get value None when value of generated property ActivityDescription
     let entityType = Option.get (inRiverService.getEntityTypeById("Activity"))
     let entity = Objects.Entity.CreateEntity(entityType)
     // act
-    let instance = pim.Activity.Create(entity)
+    let instance = pim.Activity.create entity
     // assert
     test <@ instance.Description = None @>
 
@@ -58,7 +58,7 @@ let ``Should get Some(value) when value of generated property ActivityDescriptio
     let entity = Objects.Entity.CreateEntity(entityType)
     entity.GetField("ActivityDescription").Data <- testData
     // act
-    let instance = pim.Activity.Create(entity)
+    let instance = pim.Activity.create entity
     // assert
     test <@ instance.Description = Some testData @>
 
@@ -70,6 +70,6 @@ let ``Should get activity length (System.Int32) through generated property Activ
     let entity = Objects.Entity.CreateEntity(entityType)
     entity.GetField("ActivityLength").Data <- testData
     // act
-    let instance = pim.Activity.Create(entity)
+    let instance = pim.Activity.create entity
     // assert
     test <@ instance.Length = Some testData @>

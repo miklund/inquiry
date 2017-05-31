@@ -1,4 +1,10 @@
-﻿module inQuiry.TypeProvider
+﻿/// The type provider module has all the functionality needed in order to build
+/// strong types from the type information that comes from inRiver Model Service.
+/// This module depends on inRiver.Remoting.dll for the Entity domain model and
+/// connection to the inRiver Server.
+/// The module also depends on FSharp.TypeProviders.StarterPack that is pulled in
+/// by source from Github with Paket. (http://github.com/fsprojects/FSharp.TypeProviders.StarterPack)
+module inQuiry.TypeProvider
 
 open System
 open System.Reflection
@@ -9,51 +15,38 @@ open ProviderImplementation.ProvidedTypes
 open inQuiry
 open inRiver.Remoting
 
-// remove entity ID from field name
-let fieldNamingConvention entityID (fieldName : string) =
-    // try get configuration value if this naming convention is active
-    let foundConfigValue, value = bool.TryParse(Configuration.ConfigurationManager.AppSettings.["inQuiry:fieldNamingConvention"])
-    // apply fieldNamingConvention if configuration not found or unparsable, otherwise use configuration value
-    if (not foundConfigValue) || value then
-        fieldName.Replace(entityID, String.Empty)
-    else
-        fieldName
+//
+// SUPPORT TYPES
+//
 
-// make first letter lower case
-// > camelCase "ProductName"
-// -> "productName"
-let toCamelCase = function
-| s when s = null -> null
-| s when s = String.Empty -> s
-| s when s.Length = 1 -> s.ToLower()
-| s -> System.Char.ToLower(s.[0]).ToString() + s.Substring(1)
-
-// turn a value expression to an option value expression
-let optionPropertyExpression<'a when 'a : equality> (valueExpression : Expr<'a>) =
-    <@@
-        let value = (%valueExpression : 'a)
-        if value = Unchecked.defaultof<'a> then
-            None
-        else
-            Some(value)
-        @@>
-
-let uncheckedExpression (valueExpression : Expr<'a>) =
-    <@@ (% valueExpression : 'a ) @@>
-
-// simplify the Objects.LocaleString to an immutable map
+/// The `Objects.LocaleString` is a mutable dictionary that's hard to work with
+/// in F#, so we replace that with our own implementation of an immutable Map.
 type LocaleString = Map<string, string>
 
-// the file description is used when creating a file reference
+/// The File type in inRiver is an `int` referencing a file in UtilityService.
+/// In inQuiry we replace the int with the `byte array` data, lazy loaded for
+/// performance. When we create the file, however, we also need the a string
+/// for the fileName.
+///
+/// NOTE: Discriminated unions doesn't work very well within quotation
+/// expressions, causing some weird code around the handling of this type.
 type File = 
-    // a new file is a fileName and file data
+    /// A new file is a fileName and file data
     | New of string * byte array
-    // an already persisted file is just data
+    /// An already persisted file is just data
     | Persisted of byte array
-    
+
+/// The File cache is a temporary storage for files with the entity. When we
+/// create an entity with File as constructor argument we want to delay the
+/// call to `UtilityService` until the consumer calls `save` on the entity.
+/// Then we want the File to be persisted and the Entity updated with the
+/// FileId.
 type FileCache = Map<string, File>
 
-// the available field data types
+
+/// On the `Objects.Entity` type, the DataType of the entity is represented
+/// with a string. In the type provider we use a discriminated union to make
+/// matching on the data type less painful.
 type DataType = 
     | Boolean 
     | CVL of string 
@@ -65,8 +58,9 @@ type DataType =
     | String 
     | Xml
 
-type DataType with
-    // Data type is represented as a string in inRiver
+    /// Parsing a string * string into a data type. First part of the tuple is
+    /// the `Objects.EntityType.DataType` string and the second part is the
+    /// `Objects.EntityType.CVLId`, as CVLs are references to other types.
     static member parse = function
         | "Boolean", _ -> Boolean
         | "CVL", id -> CVL id
@@ -79,59 +73,69 @@ type DataType with
         | "Xml", _ -> Xml
         | dt, _ -> failwith (sprintf "Unknown field data type: %s" dt)
 
-
-// remove the fileId suffix
-let fileNameFieldConvention (fieldType : Objects.FieldType) (input : string) =
-    // if field type is  File
-    if (fieldType.DataType, fieldType.CVLId) |> DataType.parse = File then
-        // replace the Id suffix with Data
-        System.Text.RegularExpressions.Regex.Replace(input, "Id$", "Data")
-    else
-        // otherwise return as it is
-        input
-
-// cvl stands for Custom Value List
+/// CVL stands for Custom Value List and it is a kind of advanced Enum, quite
+/// similiar to the Category concept in EPiServer CMS. This type is the base
+/// type for the provided CVL types.
 type CVLNode (cvlType : Objects.CVL, cvlValue : Objects.CVLValue) = 
-    member this.DataType = (cvlType.DataType, cvlValue.CVLId) |> DataType.parse
+
+    /// The `Objects.CVL` this provided type was generated from
     member this.CvlType = cvlType
+
+    /// The `Objects.CVLValue` this provided type was generated from
     member this.CvlValue = cvlValue
+
+    /// A CVL can be either of type `String` or `LocaleString`.
+    member this.DataType = (cvlType.DataType, cvlValue.CVLId) |> DataType.parse
+    
     override x.GetHashCode () =
         hash (cvlType, cvlValue)
+    
     override x.Equals(b) =
         match b with
         | :? CVLNode as cvl -> (cvlValue.Id, cvlValue.CVLId) = (cvl.CvlValue.Id, cvl.CvlValue.CVLId)
         | _ -> false
+    
     override x.ToString () = sprintf "(%s)" (cvlValue.ToString())
 
-// this is the entity value that is returned from the type provider
+
+/// Base type for the generated entities from the ModelService. It contains
+/// all the properties that are native to the `Objects.Entity`, and the rest
+/// of the properties are generated from `Objects.EntityType.FieldTypes`.
 type Entity (entityType, entity : Objects.Entity)  =
 
+    // This is an ugly solution to keep track on what files have been saved
+    // and what files are already persisted.
     let mutable files : FileCache = Map.empty<string, File>
 
-    // only called with entityType, create a new entity
+    // Only called with entityType, create a new entity
     new(entityType) = Entity(entityType, Objects.Entity.CreateEntity(entityType))
 
-    // called with entity, make sure we extract entityType
+    // Called with entity, make sure we extract entityType
     new(entity : Objects.Entity) = Entity(entity.EntityType, entity)
 
-    member this.PropertyValue fieldTypeId  = 
-        match entity.GetField(fieldTypeId) with
-        // expected a field, but it is not there
-        | null -> failwith (sprintf "Field %s was not set on entity %s:%d" fieldTypeId entityType.Id entity.Id)
-        //| null -> failwith (sprintf "Field %s was not set on entity %s:%d" fieldTypeId entityType.Id entity.Id)
-        | field -> field.Data
+    /// The `Object.Entity` that this instance is based on.
+    member this.Entity = entity
 
+    /// The `Object.EntityType` that this type is generated from.
+    member this.EntityType = entityType
+    
+    /// Get all new files stored in this entity with the return type
+    /// string * string * string. The first value of the tuple is the
+    /// fileTypeId this file belongs to. The second is the filename and
+    /// the last part of the tuple is the byte data.
     member this.NewFiles =
         files
         |> Map.toSeq
         // find all new files
         |> Seq.choose 
-            (fun (fileTypeId, file) -> 
+            (fun (fieldTypeId, file) -> 
                 match file with 
-                | New (fileName, data) -> Some (fileTypeId, fileName, data) 
+                | New (fileName, data) -> Some (fieldTypeId, fileName, data) 
                 | _ -> None
             )
-
+      
+    /// Because code quotations doesn't like discriminated unions we have
+    /// this helper method to get the file data for a field.
     member this.getFileData fileTypeId =
         match files |> Map.tryFind fileTypeId with
         | None -> None
@@ -140,15 +144,22 @@ type Entity (entityType, entity : Objects.Entity)  =
         // it is an old file
         | Some (Persisted data) -> Some data
 
+    /// Will mutate the file Map and update it with a new value. For internal
+    /// use this is fine, but not for updating the file properties externally.
+    /// Then we need to return a new value of the entitiy
     member this.setFile (fieldTypeId : string) (file : File) = files <- files.Add(fieldTypeId, file)
 
+    /// A wrapper to this.setFile because code quotations can't handle
+    /// discriminated unions.
     member this.setPersistedFileData (fieldTypeId : string) (data : byte array) =
         files <- files.Add(fieldTypeId, Persisted data)
         files
     
-    member this.Entity = entity
-    
-    // default properties
+    //
+    // Here comes default properties that are just references to the respective
+    // values in the Entity.
+    //
+
     member this.ChangeSet = entity.ChangeSet
 
     member this.Completeness =
@@ -160,9 +171,7 @@ type Entity (entityType, entity : Objects.Entity)  =
     member this.CreatedBy = entity.CreatedBy
     
     member this.DateCreated = entity.DateCreated
-
-    member this.EntityType = entityType
-    
+        
     member this.FieldSetId = entity.FieldSetId
     
     member this.Id = entity.Id
@@ -173,6 +182,7 @@ type Entity (entityType, entity : Objects.Entity)  =
 
     member this.Locked = entity.Locked
 
+    // TODO: This should probably be a file
     member this.MainPictureId =
         if entity.MainPictureId.HasValue then
             Some entity.MainPictureId.Value
@@ -182,19 +192,88 @@ type Entity (entityType, entity : Objects.Entity)  =
     member this.ModifiedBy = entity.ModifiedBy
 
     member this.Version = entity.Version
-    
-   
+
+
+//
+// NAMING CONVENTIONS
+//
+
+
+/// If the field name starts with the entityID, ex. ProductNumber, remove the entityID part, ex. Number
+let fieldNamingConvention entityID fieldName =
+    // try get configuration value if this naming convention is active
+    let foundConfigValue, value = bool.TryParse(Configuration.ConfigurationManager.AppSettings.["inQuiry:fieldNamingConvention"])
+    // apply fieldNamingConvention if configuration not found or unparsable, otherwise use configuration value
+    if (not foundConfigValue) || value then
+        // remove entityID if it appears at the beginning of the fieldName
+        System.Text.RegularExpressions.Regex.Replace(fieldName, "^" + entityID, System.String.Empty)
+    else
+        fieldName
+
+/// make first letter lower case
+/// > camelCase "ProductName"
+/// -> "productName"
+let toCamelCase = function
+| s when s = null -> null
+| s when s = String.Empty -> s
+| s when s.Length = 1 -> s.ToLower()
+| s -> System.Char.ToLower(s.[0]).ToString() + s.Substring(1)
+
+
+/// If the field is of type File and has a "Id" suffix, remove the suffix.
+let fileNameFieldConvention (fieldType : Objects.FieldType) (input : string) =
+    // if field type is  File
+    if (fieldType.DataType, fieldType.CVLId) |> DataType.parse = File then
+        // replace the Id suffix with Data
+        System.Text.RegularExpressions.Regex.Replace(input, "Id$", "Data")
+    else
+        // otherwise return as it is
+        input
+
+
+//
+// UTILS
+//
+
+/// Get data of a field. If the field is null (not set) this function throws
+/// an exception. This can happen when the entity model is changed without
+/// recompiling the integration code.
+let getFieldData fieldTypeId (entity : Entity)  = 
+    match entity.Entity.GetField(fieldTypeId) with
+    // expecting a field, but it is not there
+    | null -> failwith (sprintf "Field %s was not set on entity %s:%d" fieldTypeId entity.EntityType.Id entity.Id)
+    | field -> field.Data
+
+
+/// Turn a value expression to an option value expression
+let optionPropertyExpression<'a when 'a : equality> (valueExpression : Expr<'a>) =
+    <@@
+        let value = (%valueExpression : 'a)
+        if value = Unchecked.defaultof<'a> then
+            None
+        else
+            Some(value)
+        @@>
+
+/// Make an typed expression into an untyped expression
+let uncheckedExpression (valueExpression : Expr<'a>) =
+    <@@ (% valueExpression : 'a ) @@>
+
+
+//
+// TYPE FACTORIES
+// - EntityTypeFactory for creating Product, Item, Resource and so on
+// - CvlTypeFactory for creating CVL ProductStatus, Gender, Industry and so on
+//   
+
+
+/// Create one type out of one EntityType. Need to have list of generated CVL
+/// types in order to create properties of those types.
 type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Objects.EntityType)  =
-    // filter all FieldTypes that are mandatory
-    let mandatoryFieldTypes =
-        entityType.FieldTypes
-        // filter out only mandatory fields
-        |> Seq.filter (fun fieldType -> fieldType.Mandatory || fieldType.ReadOnly)
-        // make sure they're sorted by index
-        |> Seq.sortBy (fun fieldType -> fieldType.Index)
-        // change their orders so mandatory without default value comes first
-        |> Seq.sortBy (fun fieldType -> if fieldType.DefaultValue = null then 1 else 2)
-        |> Seq.toList
+
+    //
+    // DATATYPE
+    //
 
     // Get the .NET Type for this data type
     let toType = function
@@ -206,12 +285,29 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | Integer -> typeof<int>
         | LocaleString -> typeof<LocaleString>
         | String | Xml -> typeof<string>
+
     // Get the Option type for data type
     let toOptionType dataType =
         typedefof<Option<_>>.MakeGenericType([|dataType |> toType|])
+
     // Shortcut
     let stringToType = DataType.parse >> toType
-    
+
+    //
+    // FIELDS
+    //
+
+    // filter all FieldTypes that are mandatory
+    let mandatoryFieldTypes =
+        entityType.FieldTypes
+        // filter out only mandatory fields
+        |> Seq.filter (fun fieldType -> fieldType.Mandatory || fieldType.ReadOnly)
+        // make sure they're sorted by index
+        |> Seq.sortBy (fun fieldType -> fieldType.Index)
+        // change their orders so mandatory without default value comes first
+        |> Seq.sortBy (fun fieldType -> if fieldType.DefaultValue = null then 1 else 2)
+        |> Seq.toList
+        
     let fieldTypeToProvidedParameter =
         // a constructor parameter name should remove the leading entityTypeID and make camel case
         let providedParameterNamingConvention fieldTypeID = 
@@ -368,7 +464,8 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                         <@
                             let entity = (% entityExpr : Entity)
                             let value = (%% argExpr : LocaleString)
-                            // BUG This cannot work, must convert LocaleString -> Objects.LocaleString
+
+                            // convert LocaleString -> Objects.LocaleString
                             let toObjects (input : LocaleString) =
                                 // get languages
                                 let languages = 
@@ -432,6 +529,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                     ) emptyConstructorExpr
             <@@ %_constructorExpression @@>
     
+    /// Creation method for entity, static method `create`
     let createExpression entityTypeID =
         fun (args : Expr list) ->
         <@@
@@ -464,13 +562,17 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 | ex -> Error ex
             @@>
 
+    //
+    // GET property expressions
+    //
+
     let stringValueExpression fieldTypeID =
         fun (args : Expr list) ->
         <@
             // get the entity
             let entity = (%%(args.[0]) : Entity)
             // convert the value to string
-            (entity.PropertyValue fieldTypeID) :?> string
+            (entity |> getFieldData fieldTypeID) :?> string
             @>
             
     let localeStringValueExpression fieldTypeID =
@@ -479,7 +581,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             // get the entity
             let entity = (%%(args.[0]) : Entity)
             // get the field value
-            let localeString = (entity.PropertyValue fieldTypeID) :?> Objects.LocaleString
+            let localeString = (entity |> getFieldData fieldTypeID) :?> Objects.LocaleString
             // convert to immutable map
             match localeString with
             | null -> Map.empty
@@ -494,7 +596,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             // get the entity
             let entity = (%%(args.[0]) : Entity)
             // convert the value to int
-            (entity.PropertyValue fieldTypeID) :?> int
+            (entity |> getFieldData fieldTypeID) :?> int
             @>
 
     let dateTimeValueExpression fieldTypeID =
@@ -503,7 +605,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             // get the entity
             let entity = (%%(args.[0]) : Entity)
             // convert the value to DateTime
-            (entity.PropertyValue fieldTypeID) :?> System.DateTime
+            (entity |> getFieldData fieldTypeID) :?> System.DateTime
             @>
 
     let doubleValueExpression fieldTypeID =
@@ -512,7 +614,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             // get the entity
             let entity = (%% args.[0] : Entity)
             // convert the value to double
-            (entity.PropertyValue fieldTypeID) :?> double
+            (entity |> getFieldData fieldTypeID) :?> double
             @>
 
     let booleanValueExpression fieldTypeID =
@@ -521,7 +623,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             // get the entity
             let entity = (%% args.[0] : Entity)
             // convert the value to bool
-            (entity.PropertyValue fieldTypeID) :?> bool
+            (entity |> getFieldData fieldTypeID) :?> bool
             @>
         
     let cvlValueExpression cvlId fieldTypeID =
@@ -530,7 +632,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             // get the entity
             let entity = (%% args.[0] : Entity)
             // get the cvl key
-            let cvlValueKey = (entity.PropertyValue fieldTypeID) :?> string
+            let cvlValueKey = (entity |> getFieldData fieldTypeID) :?> string
             // get the cvl value
             let cvlValue = match inRiverService.getCvlValueByKey cvlId cvlValueKey with
                            | Some cvlValue -> cvlValue
@@ -561,15 +663,6 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 ignore <| entity.setPersistedFileData fieldTypeID data
                 // return data
                 data
-            @>
-
-    let objValueExpression fieldTypeID =
-        fun (args : Expr list) ->
-        <@
-            // get the entity
-            let entity = (%%(args.[0]) : Entity)
-            // convert the value to string
-            (entity.PropertyValue fieldTypeID)
             @>
 
     // try to create a property name that does not conflict with anything else on the entity
@@ -643,7 +736,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         typeDefinition.AddMember ctor
 
         // creation method
-        let createMethod = ProvidedMethod("Create", [ProvidedParameter("entity", typeof<Objects.Entity>)], typeDefinition)
+        let createMethod = ProvidedMethod("create", [ProvidedParameter("entity", typeof<Objects.Entity>)], typeDefinition)
         createMethod.IsStaticMethod <- true
         createMethod.InvokeCode <- (createExpression entityType.Id)
         typeDefinition.AddMember createMethod
@@ -674,6 +767,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
 
         typeDefinition
 
+/// Generate strong types for the CVLs in ModelService.
 type CvlTypeFactory(cvlType : Objects.CVL) =
     
     // this is a property expression, when calling a static property FashionMaterial.cotton there

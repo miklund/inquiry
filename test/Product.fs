@@ -58,7 +58,7 @@ let ``A product should have localized product name`` () =
     // arrange
     let entity = RemoteManager.DataService.GetEntityByUniqueValue("ProductNumber", "A001", Objects.LoadLevel.DataOnly)
     // act
-    let product = pim.Product.Create(entity)
+    let product = pim.Product.create entity
     // assert
     test <@ product.Name.["en"] = "City Jacket" @>
 
