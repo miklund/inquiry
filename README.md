@@ -24,15 +24,15 @@ The same thing with inQuiry.
 
 ```fsharp
 // Create a new product and save it
-Product(number = "ANewProductNumber") |> Product.save
+pim.Product(number = "ANewProductNumber") |> pim.Product.save
 ```
 
-The strong type `Product` is generated from the entity information in the
+The strong type `pim.Product` is generated from the entity information in the
 inRiver Model API. Why do we prefer using inQuiry?
 
-* Less code
+* Less code means fewer mistakes
 * Easier to read code
-* No magic strings
+* No magic strings or null references
 * Error handling when the model changes is built in
 * When the model changes you get compile time errors in stead of runtime errors
 
@@ -53,9 +53,7 @@ file and run `.paket\paket.exe install`.
 nuget inQuiry
 ```
 
-inQuiry is using the `inRiver.Remoting.dll` that comes with the inRiver Server
-installation. Make sure that you reference this DLL from the same project where you
-use inQuiry.
+More information on how to [get started with inQuiry can be found in the wiki](https://github.com/miklund/inquiry/wiki/getting-started).
 
 ## Version of inRiver that are supported
 
@@ -69,7 +67,7 @@ be verified for each an every commit.
 
 ## Can I use inQuiry from C#?
 
-You can use inQuiry from an F# project or an FSX script file. Use an F# project
+You can use inQuiry from an F# project or an [FSX script file](https://github.com/miklund/inquiry/wiki/inquiry-scripting-fsx "Using inQuiry from F# script (FSX)"). Use an F# project
 if you want to create a plugin to inRiver using inQuiry, or use an FSX script
 file if you just want to run some code calling the inRiver API.
 

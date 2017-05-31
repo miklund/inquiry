@@ -759,13 +759,13 @@ type inRiverProvider(config : TypeProviderConfig) as this =
         ]
     
     do inRiverProvider.DefineStaticParameters(parameters, fun typeName args ->
-        let host = args.[0] :?> string
-        let userName = args.[1] :?> string
-        let password = args.[2] :?> string
 
-        inRiverService.host <- host
-        inRiverService.userName <- userName
-        inRiverService.password <- password
+        // set connection details
+        inRiverService.connection <- {
+                host = args.[0] :?> string
+                userName = args.[1] :?> string
+                password = args.[2] :?> string
+            }
 
         // internal provider
         let provider = ProvidedTypeDefinition(asm, ns, typeName, Some typeof<obj>, HideObjectMethods = true)

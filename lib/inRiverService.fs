@@ -6,9 +6,17 @@ module inRiverService =
     //
     // configuration
     //
-    let mutable host = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverHost"]
-    let mutable userName = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverUserName"]
-    let mutable password = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverPassword"]
+    type ConnectionDetails = {
+            host : string
+            userName : string
+            password : string
+        }
+
+    let mutable connection = {
+            host = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverHost"]
+            userName = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverUserName"]
+            password = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:inRiverPassword"]
+        }
 
     // initialize the RemoteManager
     // This has some weird behaviours. It will only execute before "first access of a value that has observable initialization"
@@ -21,7 +29,7 @@ module inRiverService =
 
     let remoteManager =
         Lazy (fun () ->
-            inRiver.Remoting.RemoteManager.CreateInstance(host, userName, password) |> ignore
+            inRiver.Remoting.RemoteManager.CreateInstance(connection.host, connection.userName, connection.password) |> ignore
             {
                 modelService = inRiver.Remoting.RemoteManager.ModelService
                 dataService = inRiver.Remoting.RemoteManager.DataService
