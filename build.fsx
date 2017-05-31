@@ -48,10 +48,24 @@ Target "Package" (fun _ ->
             })
 )
 
+Target "Publish" (fun _ ->
+    Paket.Push (fun p ->
+        { p with
+            ApiKey = environVarOrFail "nugetApiKey"
+            PublishUrl = "https://www.nuget.org/api/v2/package"
+            WorkingDir = outputPackDir
+            TimeOut = System.TimeSpan.FromSeconds(30.0)
+            })
+)
+
 "Clean"
    ==> "BuildLib"
-    ==> "Package"
    ==> "BuildTest"
-    ==> "RunTests"
+   ==> "RunTests"
+
+"Clean"
+    ==> "BuildLib"
+        ==> "Package"
+            ==> "Publish"
 
 RunTargetOrDefault "RunTests"
