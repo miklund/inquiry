@@ -84,3 +84,36 @@ let ``ProductNumber is the DisplayName`` () =
     let product = pim.Product(productNumber)
     // assert
     test <@ product.Number = product.DisplayName @>
+
+[<Fact>]
+let ``Should be able to update the product name with translation`` () =
+    // arrange
+    let product = pim.Product("ABC123")
+                  |> set (fun p -> p.Name <- [("en", "Translate ABC123"); ("de", "Translate ABC123")] |> Map.ofList)
+    // act
+                  |> set (fun p -> p.Name <- p.Name.Add ("en", "My Little Pony: Twilight Sparkle Swim Suit"))
+    // assert
+    test <@ product.Name |> Map.find "en" = "My Little Pony: Twilight Sparkle Swim Suit" @>
+
+[<Fact>]
+let ``Default value of product name should be an empty translation map`` () =
+    // act
+    let product = pim.Product("ABC123")
+    // assert
+    test <@ product.Name = Map.empty @>
+
+[<Fact>]
+let ``Should be able to set the short description from constructor`` () =
+    // act
+    let product = pim.Product("ABC123", ShortDescription = ([("en", "Localized short description in english")] |> Map.ofList))
+    // assert
+    test <@ product.ShortDescription |> Map.find "en" = "Localized short description in english" @>
+
+[<Fact>]
+let ``Should be able to add translation to the long product description`` () =
+    // arrange
+    let product = pim.Product("ABC123", LongDescription = ([("en", "Localized long description in english")] |> Map.ofList))
+    // act
+                  |> set (fun p -> p.LongDescription <- p.LongDescription.Add ("sv", "En lång beskrivning på svenska"))
+    // assert
+    test <@ product.LongDescription |> Map.find "sv" = "En lång beskrivning på svenska" @>

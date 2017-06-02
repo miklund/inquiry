@@ -24,3 +24,13 @@ let ``Constructor parameters should apply naming conventions removing the word b
     let instance = pim.Bundle(name = "The bundle name")
     // assert
     test <@ instance.GetType() = typeof<pim.Product> @>
+
+[<Fact>]
+let ``Should be able to set bundle description`` () =
+    // arrange
+    let bundle = pim.Bundle("Buy a bike get a head")
+    // act
+                 |> set (fun b -> b.Description <- [("en", "Buy bike, get head"); ("sv", "Köp cykel, kom först")] |> Map.ofList)
+    // assert
+    test <@ bundle.Description |> Map.find "en" = "Buy bike, get head" @>
+    test <@ bundle.Description |> Map.find "sv" = "Köp cykel, kom först" @>

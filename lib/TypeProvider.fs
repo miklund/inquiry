@@ -23,6 +23,23 @@ open inRiver.Remoting
 /// in F#, so we replace that with our own implementation of an immutable Map.
 type LocaleString = Map<string, string>
 
+// convert LocaleString -> Objects.LocaleString
+let toObjects (input : LocaleString) =
+    // get languages
+    let languages = 
+        new System.Collections.Generic.List<System.Globalization.CultureInfo> (
+            input
+            |> Map.toSeq
+            |> Seq.map (fun (lang, value) -> System.Globalization.CultureInfo.GetCultureInfo(lang)))
+    // create result object
+    let result = Objects.LocaleString(languages)
+    // feed it with values
+    input
+    |> Map.toSeq
+    |> Seq.iter (fun (lang, value) -> result.[System.Globalization.CultureInfo.GetCultureInfo(lang)] <- value)
+    // return
+    result
+
 /// The File type in inRiver is an `int` referencing a file in UtilityService.
 /// In inQuiry we replace the int with the `byte array` data, lazy loaded for
 /// performance. When we create the file, however, we also need the a string
@@ -498,23 +515,6 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                             let entity = (% entityExpr : Entity)
                             let value = (%% argExpr : LocaleString)
 
-                            // convert LocaleString -> Objects.LocaleString
-                            let toObjects (input : LocaleString) =
-                                // get languages
-                                let languages = 
-                                    new System.Collections.Generic.List<System.Globalization.CultureInfo> (
-                                        input
-                                        |> Map.toSeq
-                                        |> Seq.map (fun (lang, value) -> System.Globalization.CultureInfo.GetCultureInfo(lang)))
-                                // create result object
-                                let result = Objects.LocaleString(languages)
-                                // feed it with values
-                                input
-                                |> Map.toSeq
-                                |> Seq.iter (fun (lang, value) -> result.[System.Globalization.CultureInfo.GetCultureInfo(lang)] <- value)
-                                // return
-                                result
-
                             if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
                                 // this is a mandatory constructor parameter
                                 entity.Entity.GetField(fieldTypeId).Data <- value |> toObjects
@@ -640,6 +640,17 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                     |> Map.ofSeq
             @>
 
+    let setLocaleStringValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+            <@@
+                // get the entity
+                let entity = (%% args.[0] : Entity)
+                // get the value
+                let value = (%% args.[1] : LocaleString)
+                // set the value
+                entity.Entity.GetField(fieldTypeID).Data <- value |> toObjects
+                @@>
+
     let integerValueExpression fieldTypeID =
         fun (args : Expr list) ->
         <@
@@ -749,23 +760,13 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         // match on data types and if fieldType is mandatory or not
         match dataType with
         | String -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression), SetterCode = (setStringValueExpression fieldTypeID))
-        
-        // LocaleString properties will be the same independently if it's mandatory or not
-        | LocaleString -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
-
+        | LocaleString -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression), SetterCode = (setLocaleStringValueExpression fieldTypeID))
         | DateTime -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
-        
         | Integer -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
-        
         | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
-        
         | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
-        
         | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
-        
         | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
-        
-        // File properties are same independently on mandatory parameter, right now Files should always be mandatory
         | File -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
 
     member this.createProvidedTypeDefinition assembly ns =
