@@ -32,7 +32,7 @@ The purpose of v0.2 is to retrieve a single entity, change it and save it back t
 
 ```fsharp
 let product = Product.GetByNumber("SKU123")
-let newProduct = { product | Number = "SKU 456"}
+let newProduct = { product with Number = "SKU 456"}
 newProduct.save() |> ignore
 ```
 
@@ -41,11 +41,12 @@ newProduct.save() |> ignore
 * Able to change values by immutable type syntax
 * Implement FieldSets
 * Implement Categories
-* Implement Read-Only properties
+* Implement Read-Only properties, shall not have a set property, but can be optional i constructor
 * Implement MultiValue
 * Implement Unique
 * Implement Hidden
 * Implement Exclude from Default View
+* If the string field has default value 'guid', present the Property as Guid type instead
 * Create fsi files to protect internal members of the library
 * Implement multivalue CVL fields
 * Write example on
@@ -53,20 +54,6 @@ newProduct.save() |> ignore
   - How to filter out specific fieldsets
   - How to filter out categories
   - How to read and write properties
+  - How to write an import extension importing data from XML to inRiver
 * Make the Resource integrated with its data
 * Xml field should be represented by XDocument and not string, string is the DTO data type
-
-v0.1
-
-The goal with this version is to provide the functionality to do the following.
-
-```fsharp
-let product = Product(number = "ANewProductNumber")
-ignore <| Product.save(product)
-```
-
-* Setup a nuget package
-* Setup inQuiry.wiki with example code
-* Setup an example project with the following examples
-  - How to create and add a new product to inriver by FSX
-  - How to write an import extension importing data from XML to inRiver

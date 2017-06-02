@@ -106,7 +106,7 @@ type Entity (entityType, entity : Objects.Entity)  =
     // This is an ugly solution to keep track on what files have been saved
     // and what files are already persisted.
     let mutable files : FileCache = Map.empty<string, File>
-
+    
     // Only called with entityType, create a new entity
     new(entityType) = Entity(entityType, Objects.Entity.CreateEntity(entityType))
 
@@ -154,7 +154,27 @@ type Entity (entityType, entity : Objects.Entity)  =
     member this.setPersistedFileData (fieldTypeId : string) (data : byte array) =
         files <- files.Add(fieldTypeId, Persisted data)
         files
+
+    member this.clone () =
+        let cloneEntity = Objects.Entity.CreateEntity(entity.EntityType)
+        
+        // copy fields
+        this.Entity.Fields
+        |> Seq.iter (fun field -> cloneEntity.GetField(field.FieldType.Id).Data <- (field.Clone() :?> Objects.Field).Data)
     
+        // copy links
+        this.Entity.Links
+        |> Seq.iter (fun link -> cloneEntity.Links.Add(Objects.Link(Id = link.Id, Inactive = link.Inactive, Index = link.Index, LinkEntity = link.LinkEntity, LinkType = link.LinkType, Source = link.Source, Target = link.Target)))
+
+        // create result instance
+        let result = Entity(cloneEntity)
+
+        // copy files
+        files |> Map.toSeq |> Seq.iter (fun (fileTypeId, file) -> result.setFile fileTypeId file)
+
+        // return 
+        result
+
     //
     // Here comes default properties that are just references to the respective
     // values in the Entity.
@@ -192,6 +212,19 @@ type Entity (entityType, entity : Objects.Entity)  =
     member this.ModifiedBy = entity.ModifiedBy
 
     member this.Version = entity.Version
+    
+
+let set<'a when 'a :> Entity> (update : 'a -> unit) (entity : 'a) =
+    // Here I create a new instance of Entity and upcast it to 'a, ex. Product
+    // This is not possible in normal code, you cannot upcast to a sub class.
+    // But in this case the upcast will happen in runtime, when Product doesn't
+    // exist and all instances of 'a, actually is an Entity instance.
+    // Welcome to the fabulous world of meta programming with type providers!
+    let clone = entity.clone() :?> 'a
+    // mutate the state
+    update(clone)
+    // return
+    clone
 
 
 //
@@ -523,6 +556,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                             if (file :> obj) = null then
                                 failwith (sprintf "Unable to create %s with %s as null value" entity.EntityType.Id fieldTypeId)
                             else
+                                // store file in entity cache
                                 entity.setFile fieldTypeId file
                             entity
                             @>
@@ -562,11 +596,12 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 | ex -> Error ex
             @@>
 
+
     //
-    // GET property expressions
+    // Property expressions
     //
 
-    let stringValueExpression fieldTypeID =
+    let getStringValueExpression fieldTypeID =
         fun (args : Expr list) ->
         <@
             // get the entity
@@ -574,6 +609,21 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             // convert the value to string
             (entity |> getFieldData fieldTypeID) :?> string
             @>
+
+    let setStringValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the value
+            match (%% args.[1] : string option) with
+            // if some value set it
+            | Some value -> entity.Entity.GetField(fieldTypeID).Data <- value
+            // if no value, but field is mandatory = fail
+            | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | None -> entity.Entity.GetField(fieldTypeID).Data <- null            
+            @@>
             
     let localeStringValueExpression fieldTypeID =
         fun (args : Expr list) ->
@@ -697,33 +747,26 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         let dataType = DataType.parse (fieldType.DataType, fieldType.CVLId)
 
         // match on data types and if fieldType is mandatory or not
-        match dataType, fieldType.Mandatory with
-        | String, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
-        | String, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
+        match dataType with
+        | String -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression), SetterCode = (setStringValueExpression fieldTypeID))
         
         // LocaleString properties will be the same independently if it's mandatory or not
-        | LocaleString, _ -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
+        | LocaleString -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression))
 
-        | DateTime, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> uncheckedExpression))
-        | DateTime, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
+        | DateTime -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((dateTimeValueExpression fieldTypeID) >> optionPropertyExpression))
         
-        | Integer, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> uncheckedExpression))
-        | Integer, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
+        | Integer -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
         
-        | Boolean, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> uncheckedExpression))
-        | Boolean, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
+        | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
         
-        | Double, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> uncheckedExpression))
-        | Double, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
+        | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
         
-        | CVL id, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> uncheckedExpression))
-        | CVL id, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
+        | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
         
-        | Xml, true -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> uncheckedExpression))
-        | Xml, false -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((stringValueExpression fieldTypeID) >> optionPropertyExpression))
+        | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
         
         // File properties are same independently on mandatory parameter, right now Files should always be mandatory
-        | File, _ -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
+        | File -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type
@@ -731,7 +774,6 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         let typeDefinition = ProvidedTypeDefinition(entityType.Id, Some typeof<Entity>)
         typeDefinition.HideObjectMethods <- true;
         
-        // create a constructor
         let ctor = ProvidedConstructor(mandatoryProvidedParameters, InvokeCode = constructorExpression entityType.Id mandatoryFieldTypes)
         typeDefinition.AddMember ctor
 

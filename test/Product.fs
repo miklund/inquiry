@@ -22,7 +22,7 @@ let ``Mandatory parameter ProductNumber injected in constructor should be set to
     // act
     let instance = pim.Product("ABC123", pim.ProductStatus.printready, false)
     // assert
-    test <@ instance.Number = "ABC123" @>
+    test <@ instance.Number = Some "ABC123" @>
 
 [<Fact>]
 let ``Mandatory parameter ProductApproved injected in constructor should be set to entity`` () =
@@ -31,7 +31,7 @@ let ``Mandatory parameter ProductApproved injected in constructor should be set 
     // act
     let instance = pim.Product("ABC123", pim.ProductStatus.underenrichment, productApproved)
     // assert
-    test <@ instance.Approved = productApproved @>
+    test <@ instance.Approved = Some productApproved @>
 
 [<Fact>]
 let ``Constructor parameters should apply naming conventions removing the word product and use camel case`` () =
@@ -50,7 +50,7 @@ let ``Saving a product will return an updated Product with new Id`` () =
                      | Ok entity -> entity
                      | Error ex -> failwith ex.Message
     // assert
-    test <@ newProduct.Number = productNumber @>
+    test <@ newProduct.Number = Some productNumber @>
     test <@ newProduct.Id > 0 @>
 
 [<Fact>]
@@ -67,14 +67,14 @@ let ``ProductStatus CVL should be set in the constructor`` () =
     // act
     let product = pim.Product("ABC123", status = pim.ProductStatus.underenrichment)
     // assert
-    test <@ product.Status = pim.ProductStatus.underenrichment @>
+    test <@ product.Status = Some(pim.ProductStatus.underenrichment) @>
    
 [<Fact>]
 let ``Default value of ProductStatus should be new`` () =
     // act
     let product = pim.Product("ABC123")
     // assert
-    test <@ product.Status = pim.ProductStatus.``new`` @>
+    test <@ product.Status = Some(pim.ProductStatus.``new``) @>
 
 [<Fact>]
 let ``ProductNumber is the DisplayName`` () =

@@ -41,3 +41,55 @@ let ``Saving a Resource will also save the file data to utility service`` () =
     let fileId = instance.Entity.GetField("ResourceFileId").Data :?> int
     // assert
     test <@ inRiverService.getFile fileId = data @>
+
+[<Fact>]
+let ``Can set resource name`` () =
+    // arrange
+    let data = [| for i in [65..74] -> byte(i) |]
+    let file = New ("test.dat", data)
+    // act
+    let resource = pim.Resource(file, Name = Some "Test data")
+    // assert
+    test <@ resource.Name = Some "Test data" @>
+
+[<Fact>]
+let ``Resource filename is set from constructor`` () =
+    // arrange
+    let data = [| for i in [65..74] -> byte(i) |]
+    let file = New ("test.dat", data)
+    // act
+    let resource = pim.Resource(file, Filename = Some "test.dat")
+    // assert
+    test <@ resource.Filename = Some "test.dat" @>
+
+[<Fact>]
+let ``Can set the resource mime type`` () =
+    // arrange
+    let data = [| for i in [65..74] -> byte(i) |]
+    let file = New ("test.dat", data)
+    // act
+    let resource = pim.Resource(file)
+                   |> set (fun r -> r.MimeType <- Some "base64/text")
+    // assert
+    test <@ resource.MimeType = Some "base64/text" @>
+
+[<Fact>]
+let ``Can set the resource description`` () =
+    // arrange
+    let data = [| for i in [65..74] -> byte(i) |]
+    let file = New ("test.dat", data)
+    // act
+    let resource = pim.Resource(file)
+                   |> set (fun r -> r.Description <- Some "This is a test file!")
+    // assert
+    test <@ resource.Description = Some "This is a test file!" @>
+
+[<Fact>]
+let ``Can set the resource image map`` () =
+    // arrange
+    let data = [| for i in [65..74] -> byte(i) |]
+    let file = New ("test.dat", data)
+    // act
+    let resource = pim.Resource(file, ImageMap = Some "test.dat.map")
+    // assert
+    test <@ resource.ImageMap = Some "test.dat.map" @>

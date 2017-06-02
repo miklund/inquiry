@@ -73,3 +73,12 @@ let ``Should get activity length (System.Int32) through generated property Activ
     let instance = pim.Activity.create entity
     // assert
     test <@ instance.Length = Some testData @>
+
+[<Fact>]
+let ``Should be able to update ActivityDescription with a value`` () =
+    // arrange
+    let description = "My new activity"
+    // act
+    let activity = pim.Activity() |> set (fun a -> a.Description <- Some description)
+    // assert
+    test <@ activity.Description = Some description @>

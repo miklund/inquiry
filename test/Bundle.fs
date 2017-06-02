@@ -16,7 +16,7 @@ let ``Should be able to create a new instance of Bundle and set the name`` () =
     // act
     let instance = pim.Bundle(bundleName)
     // assert
-    test <@ instance.Name = bundleName @>
+    test <@ instance.Name = Some bundleName @>
 
 [<Fact>]
 let ``Constructor parameters should apply naming conventions removing the word bundle and use camel case`` () =

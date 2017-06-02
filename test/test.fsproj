@@ -68,17 +68,25 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Activity.fs" />
+    <Compile Include="Assortment.fs" />
     <Compile Include="ActivityStatus.fs" />
     <Compile Include="Brand.fs" />
     <Compile Include="Bundle.fs" />
     <Compile Include="Color.fs" />
-    <Compile Include="DefaultEntityProperties.fs" />
     <Compile Include="Campaign.fs" />
     <Compile Include="CampaignType.fs" />
+    <Compile Include="Channel.fs" />
+    <Compile Include="ChannelNodeName.fs" />
+    <Compile Include="DefaultEntityProperties.fs" />
     <Compile Include="FashionMaterial.fs" />
     <Compile Include="Industry.fs" />
+    <Compile Include="Item.fs" />
+    <Compile Include="Milestone.fs" />
     <Compile Include="Resource.fs" />
     <Compile Include="Product.fs" />
+    <Compile Include="Section.fs" />
+    <Compile Include="Specification.fs" />
+    <Compile Include="Task.fs" />
     <Compile Include="TestEntity.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />

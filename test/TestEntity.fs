@@ -26,8 +26,8 @@ let ``When field TestName is conflicting with field Name then no conventions sho
     // act
     let instance = pim.Test(testName = "Hello", name = "World")
     // assert
-    test <@ instance.TestName = "Hello" @>
-    test <@ instance.Name = "World" @>
+    test <@ instance.TestName = Some "Hello" @>
+    test <@ instance.Name = Some "World" @>
 
 [<Fact>]
 let ``When field TestCreatedBy is conflicting with Entity property CreatedBy then no conventions should apply to property`` () =
@@ -43,7 +43,7 @@ let ``When field type is mandatory but a default value has been supplied then co
     // act
     let instance = pim.Test("")
     // assert
-    test <@ instance.TestName = defaultValue @>
+    test <@ instance.TestName = Some defaultValue @>
 
 [<Fact>]
 let ``When field type is mandatory and has a default value but is supplied with another value from constructor then that constructor value should be used`` () =
@@ -52,7 +52,7 @@ let ``When field type is mandatory and has a default value but is supplied with 
     // act
     let instance = pim.Test("", testName = testNameValue)
     // assert
-    test <@ instance.TestName = testNameValue @>
+    test <@ instance.TestName = Some testNameValue @>
 
 [<Fact>]
 let ``Setting a non mandatory field TestDescription will set Some value at property TestDescription`` () =
@@ -95,4 +95,4 @@ let ``TestXML should be able to set XML value from constructor`` () =
     // act
     let instance = pim.Test("XmlTest", xml = xml)
     // assert
-    test <@ instance.Xml = xml @>
+    test <@ instance.Xml = Some xml @>
