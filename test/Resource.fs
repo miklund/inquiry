@@ -93,3 +93,13 @@ let ``Can set the resource image map`` () =
     let resource = pim.Resource(file, ImageMap = Some "test.dat.map")
     // assert
     test <@ resource.ImageMap = Some "test.dat.map" @>
+
+[<Fact>]
+let ``Can set the media type to sketch`` () =
+    // arrange
+    let data = [| for i in [65..74] -> byte(i) |]
+    let file = New ("test.dat", data)
+    // act
+    let resource = pim.Resource(file, MediaType = Some pim.MediaType.sketch)
+    // assert
+    test <@ resource.MediaType = Some pim.MediaType.sketch @>

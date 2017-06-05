@@ -157,3 +157,60 @@ let ``Should be able to set relative start`` () =
     let activity = pim.Activity(RelStart = Some 321)
     // assert
     test <@ activity.RelStart = Some 321 @>
+
+[<Fact>]
+let ``Can set activity type to MilestoneType.Translation`` () =
+    // act
+    let activity = pim.Activity(Type = Some pim.MilestoneType.Translation)
+    // assert
+    test <@ activity.Type = Some pim.MilestoneType.Translation @>
+
+[<Fact>]
+let ``Can change activity type to MilestoneType.SelectImages`` () =
+    // arrange
+    let activity = pim.Activity(Type = Some pim.MilestoneType.Translation)
+    // act
+                   |> set (fun a -> a.Type <- Some pim.MilestoneType.SelectImages)
+    // assert
+    test <@ activity.Type = Some pim.MilestoneType.SelectImages @>
+
+[<Fact>]
+let ``Can set activity type to None`` () =
+    // arrange
+    let activity = pim.Activity()
+    // act
+                   |> set (fun a -> a.Type <- None)
+    // assert
+    test <@ activity.Type = None @>
+
+[<Fact>]
+let ``Activity status should be new by default`` () =
+    // act
+    let activity = pim.Activity()
+    // assert
+    test <@ activity.Status = Some pim.ActivityStatus.``new`` @>
+
+[<Fact>]
+let ``Can change activity status to ongoing`` () =
+    // arrange
+    let activity = pim.Activity()
+    // act
+                   |> set (fun a -> a.Status <- Some pim.ActivityStatus.ongoing)
+    // assert
+    test <@ activity.Status = Some pim.ActivityStatus.ongoing @>
+
+[<Fact>]
+let ``Activity responsible should have None as default value`` () =
+    // act
+    let activity = pim.Activity()
+    // assert
+    test <@ activity.Responsible = None @>
+
+[<Fact>]
+let ``Can set activity responsible to pimuser1`` () =
+    // arrange
+    let activity = pim.Activity()
+    // act
+                   |> set (fun a -> a.Responsible <- Some pim.Users.cert9)
+    // arrange
+    test <@ activity.Responsible = Some pim.Users.cert9 @>

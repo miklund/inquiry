@@ -31,3 +31,17 @@ let ``Should be able to set published to true`` () =
     let channel = pim.Channel(published = true)
     // assert
     test <@ channel.Published = Some  true @>
+
+[<Fact>]
+let ``Industry should be None by default`` () =
+    // act
+    let channel = pim.Channel()
+    // assert
+    test <@ channel.Industry = None @>
+
+[<Fact>]
+let ``Can set industry to electronics`` () =
+    // act
+    let channel = pim.Channel(Industry = Some pim.Industry.electronics)
+    // assert
+    test <@  channel.Industry = Some pim.Industry.electronics @>

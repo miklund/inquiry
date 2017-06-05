@@ -756,25 +756,44 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
             @@>
 
-    let cvlValueExpression cvlId fieldTypeID =
+    let getCvlValueExpression cvlId fieldTypeID =
         fun (args : Expr list) ->
-        <@
+        <@@
             // get the entity
             let entity = (%% args.[0] : Entity)
             // get the cvl key
             let cvlValueKey = (entity |> getFieldData fieldTypeID) :?> string
-            // get the cvl value
-            let cvlValue = match inRiverService.getCvlValueByKey cvlId cvlValueKey with
-                           | Some cvlValue -> cvlValue
-                           | None -> failwith (sprintf "Was unable to find CVLValue with key %s in service" cvlValueKey)
+            if cvlValueKey = null then
+                None
+            else
+                // get the cvl value
+                let cvlValue = match inRiverService.getCvlValueByKey cvlId cvlValueKey with
+                               | Some cvlValue -> cvlValue
+                               | None -> failwith (sprintf "Was unable to find CVLValue with key %s in service" cvlValueKey)
 
-            // get the cvl type
-            let cvlType = match inRiverService.getCvlTypeById cvlId with
-                          | Some cvlType -> cvlType
-                          | None -> failwith (sprintf "Was expecting CVL with id %s in service" cvlId)
-            // create the value
-            CVLNode(cvlType, cvlValue)
-            @>
+                // get the cvl type
+                let cvlType = match inRiverService.getCvlTypeById cvlId with
+                              | Some cvlType -> cvlType
+                              | None -> failwith (sprintf "Was expecting CVL with id %s in service" cvlId)
+
+                // create the value
+                Some (CVLNode(cvlType, cvlValue))
+            @@>
+
+    let setCvlValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            //get the entity
+            let entity = ( %% args.[0] : Entity)
+            // get the value
+            match (%% args.[1] : CVLNode option) with
+            // if some value set it
+            | Some value -> entity.Entity.GetField(fieldTypeID).Data <- value.CvlValue.Key
+            // if no value, but field is mandatory = fail
+            | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
+            @@>
 
     let fileValueExpression fieldTypeID =
         fun (args : Expr list) ->
@@ -834,7 +853,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | Integer -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getIntegerValueExpression fieldTypeID), SetterCode = (setIntegerValueExpression fieldTypeID))
         | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getBooleanValueExpression fieldTypeID), SetterCode = (setBooleanValueExpression fieldTypeID))
         | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDoubleValueExpression fieldTypeID), SetterCode = (setDoubleValueExpression fieldTypeID))
-        | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
+        | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getCvlValueExpression id fieldTypeID), SetterCode = (setCvlValueExpression fieldTypeID))
         | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
         | File -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
 

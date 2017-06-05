@@ -37,3 +37,19 @@ let ``Can set milestone end date`` () =
     let milestone = pim.Milestone(EndDate = Some tomorrow)
     // assert
     test <@ milestone.EndDate = Some tomorrow @>
+
+[<Fact>]
+let ``Milestone status should default to new`` () =
+    // act
+    let milestone = pim.Milestone()
+    // assert
+    test <@ milestone.Status = Some pim.MilestoneStatus.New @>
+
+[<Fact>]
+let ``Can change the milestone status to ongoing`` () =
+    // arrange
+    let milestone = pim.Milestone()
+    // act
+                    |> set (fun m -> m.Status <- Some pim.MilestoneStatus.Ongoing)
+    // assert
+    test <@ milestone.Status = Some pim.MilestoneStatus.Ongoing @>

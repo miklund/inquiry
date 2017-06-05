@@ -150,4 +150,74 @@ let ``Cannot set product approved to None because it is mandatory`` () =
     // assert
     Assert.Throws(code) |> ignore
 
+[<Fact>]
+let ``Can set product industry to manufacturing`` () =
+    // act
+    let product = pim.Product("ABC123", Industry = Some pim.Industry.manufacturing)
+    // assert
+    test <@ product.Industry = Some pim.Industry.manufacturing @>
 
+[<Fact>]
+let ``Can set product main category to jacket`` () =
+    // act
+    let product = pim.Product("ABC123", MainCategory = Some pim.MainCategory.jacket)
+    // assert
+    test <@ product.MainCategory = Some pim.MainCategory.jacket @>
+
+[<Fact>]
+let ``Can set product sub category to casual`` () =
+    // act
+    let product = pim.Product("ABC123", SubCategory = Some pim.SubCategory.casual)
+    // assert
+    test <@ product.SubCategory = Some pim.SubCategory.casual @>
+
+[<Fact>]
+let ``Can set product market to sweden`` () =
+    // act
+    let product = pim.Product("ABC123", Market = Some pim.Market.se)
+    // assert
+    test <@ product.Market = Some pim.Market.se @>
+
+[<Fact>]
+let ``Can set product brand to bosch`` () =
+    // act
+    let product = pim.Product("ABC123", Brand = Some pim.Brand.bosch)
+    // assert
+    test <@ product.Brand = Some pim.Brand.bosch @>
+
+[<Fact>]
+let ``Default product status shall be new`` () =
+    // act
+    let product = pim.Product("ABC123")
+    // assert
+    test <@ product.Status = Some pim.ProductStatus.``new`` @>
+
+[<Fact>]
+let ``Can update the product status to web ready`` () =
+    // act
+    let product = pim.Product("ABC123", Status = Some pim.ProductStatus.webready)
+    // assert
+    test <@ product.Status = Some pim.ProductStatus.webready @>
+
+[<Fact>]
+let ``Cannot set the product status to None`` () =
+    // arrange
+    let product = pim.Product("ABC123")
+    // act
+    let code = fun () -> product |> set (fun p -> p.Status <- None) |> ignore
+    // assert
+    ignore <| Assert.Throws(code)
+
+[<Fact>]
+let ``Can set the product fashion gender to unisex`` () =
+    // act
+    let product = pim.Product("ABC123", FashionGender = Some pim.Gender.unisex)
+    // assert
+    test <@ product.FashionGender = Some pim.Gender.unisex @>
+
+[<Fact>]
+let ``Can set the product translation status complete to Swedish`` () =
+    // act
+    let product = pim.Product("ABC123", TranslationStatus = Some pim.ProductTranslationComplete.Swedish)
+    // assert
+    test <@ product.TranslationStatus = Some pim.ProductTranslationComplete.Swedish @>

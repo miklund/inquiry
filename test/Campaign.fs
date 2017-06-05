@@ -82,3 +82,28 @@ let ``Should be able to set demo`` () =
     let campaign = pim.Campaign("Spring Sale", Demo = Some 1)
     // assert
     test <@ campaign.Demo = Some 1 @>
+
+[<Fact>]
+let ``Default value of type should be campaign`` () =
+    // act
+    let campaign = pim.Campaign("Spring Sale")
+    // assert
+    test <@ campaign.Type = Some pim.CampaignType.campaign @>
+
+[<Fact>]
+let ``Can set campaign type to sale`` () =
+    // arrange
+    let campaign = pim.Campaign("Spring Sale")
+    // act
+                   |> set (fun c -> c.Type <- Some pim.CampaignType.sale)
+    // assert
+    test <@ campaign.Type = Some pim.CampaignType.sale @>
+
+[<Fact>]
+let ``Cannot set campaign type to None`` () =
+    // arrange
+    let campaign = pim.Campaign("Spring Sale")
+    // act
+    let code = fun () -> campaign |> set (fun c -> c.Type <- None) |> ignore
+    // assert
+    ignore <| Assert.Throws(code)

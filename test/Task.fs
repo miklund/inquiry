@@ -63,3 +63,17 @@ let ``Should be able to set email property to None`` () =
                |> set (fun t -> t.Email <- None)
     // assert
     test <@ task.Email = None @>
+
+[<Fact>]
+let ``Default value for task status is None`` () =
+    // act
+    let task = pim.Task(pim.Users.cert9)
+    // assert
+    test <@ task.Status = None @>
+
+[<Fact>]
+let ``Can set task status to new`` () =
+    // act
+    let task = pim.Task(pim.Users.cert9, Status = Some pim.TaskStatus.``new``)
+    // assert
+    test <@ task.Status = Some pim.TaskStatus.``new`` @>

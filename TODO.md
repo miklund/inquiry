@@ -36,6 +36,8 @@ v0.3
 
 The purpose of v0.3 is to query the inRiver API for several entities.
 
+* Opt-in logging for the code generation
+
 v0.2
 
 The purpose of v0.2 is to retrieve a single entity, change it and save it back to inRiver.
@@ -67,3 +69,5 @@ newProduct.save() |> ignore
   - How to write an import extension importing data from XML to inRiver
 * Make the Resource integrated with its data
 * Xml field should be represented by XDocument and not string, string is the DTO data type
+* BUG: CVL type Users is not generating all the CVL values
+* BUG: Can't handle a CVL with the same name as Entity
