@@ -41,3 +41,37 @@ let ``Trying to set a mandatory property to null should cause an error`` () =
     let code = fun () -> instance.Name <- None
     // assert
     ignore <| Assert.Throws(code)
+
+[<Fact>]
+let ``Can set campaign start date`` () =
+    // arrange
+    let today = System.DateTime.Today
+    // act
+    let campaign = pim.Campaign("Sprint Sale", StartDate = Some today)
+    // assert
+    test <@ campaign.StartDate = Some today @>
+
+[<Fact>]
+let ``Campaign start date is None when not set`` () =
+    // act
+    let campaign = pim.Campaign("Spring sale")
+    // assert
+    test <@ campaign.StartDate = None @>
+
+[<Fact>]
+let ``Can set campaign start date to None`` () =
+    // arrange
+    let campaign = pim.Campaign("Spring Sale", StartDate = Some System.DateTime.Now)
+    // act
+                   |> set (fun c -> c.StartDate <- None)
+    // assert
+    test <@ campaign.StartDate = None @>
+
+[<Fact>]
+let ``Can set campaign end date`` () =
+    // assert
+    let tomorrow = System.DateTime.Today.AddDays(1.0)
+    // arrange
+    let campaign = pim.Campaign("Spring sale", EndDate = Some tomorrow)
+    // assert
+    test <@ campaign.EndDate = Some tomorrow @>

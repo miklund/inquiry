@@ -28,3 +28,12 @@ let ``Can update task description`` () =
     let newTask = task |> set (fun t -> t.Description <- Some description)
     // assert
     test <@ newTask.Description = Some description @>
+
+[<Fact>]
+let ``Can set task due date`` () =
+    // arrange
+    let tomorrow = System.DateTime.Today.AddDays(1.0)
+    // act
+    let task = pim.Task(pim.Users.cert9, DueDate = Some tomorrow)
+    // assert
+    test <@ task.DueDate = Some tomorrow @>

@@ -34,3 +34,21 @@ let ``Should be able to set bundle description`` () =
     // assert
     test <@ bundle.Description |> Map.find "en" = "Buy bike, get head" @>
     test <@ bundle.Description |> Map.find "sv" = "Köp cykel, kom först" @>
+
+[<Fact>]
+let ``Bundle description should be empty Map when unset`` () =
+    // act
+    let bundle = pim.Bundle("Bundle description should be empty Map when unset")
+    // assert
+    test <@ bundle.Description = Map.empty @>
+
+[<Fact>]
+let ``Should be able to empty bundle description`` () =
+    // arrange
+    let description = [("en", "Buy a bike get a grill"); ("sv", "Kök en cykel få en grill")] |> Map.ofList
+    let bundle = pim.Bundle("Should be able to empty bundle description", Description = description)
+    // act
+                 |> set (fun b -> b.Description <- Map.empty)
+    // assert
+    test <@ bundle.Description = Map.empty @>
+

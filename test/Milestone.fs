@@ -19,3 +19,21 @@ let ``Can update value of NodeName and Description`` () =
                     |> set (fun m -> m.NodeName <- nodeName; m.Description <- description)
     // assert
     test <@ milestone.NodeName = nodeName && milestone.Description = description @>
+
+[<Fact>]
+let ``Can set milestone start date`` () =
+    // arrange
+    let today = System.DateTime.Today
+    // act
+    let milestone = pim.Milestone(StartDate = Some today)
+    // assert
+    test <@ milestone.StartDate = Some today @>
+
+[<Fact>]
+let ``Can set milestone end date`` () =
+    // arrange
+    let tomorrow = System.DateTime.Today.AddDays(1.0)
+    // act
+    let milestone = pim.Milestone(EndDate = Some tomorrow)
+    // assert
+    test <@ milestone.EndDate = Some tomorrow @>

@@ -51,6 +51,15 @@ let ``Should get value None when value of generated property ActivityDescription
     test <@ instance.Description = None @>
 
 [<Fact>]
+let ``Should be able to set ActivityDescription to None`` () =
+    // arrange
+    let instance = pim.Activity(Description = Some "Activity Description")
+    // act
+                   |> set (fun a -> a.Description <- None)
+    // assert
+    test <@ instance.Description = None @>
+
+[<Fact>]
 let ``Should get Some(value) when value of generated property ActivityDescription is not null`` () =
     // arrange
     let testData = "Activity Description"
@@ -82,3 +91,38 @@ let ``Should be able to update ActivityDescription with a value`` () =
     let activity = pim.Activity() |> set (fun a -> a.Description <- Some description)
     // assert
     test <@ activity.Description = Some description @>
+
+[<Fact>]
+let ``Should be able to set StartDate`` () =
+    // arrange
+    let now = System.DateTime.Now
+    // act
+    let activity = pim.Activity(StartDate = Some now)
+    // assert
+    test <@ activity.StartDate = Some now @>
+
+[<Fact>]
+let ``Should be able to update EndDate`` () =
+    // arrange
+    let tomorrow = System.DateTime.Today.AddDays(1.0)
+    let activity = pim.Activity(EndDate = Some System.DateTime.Today)
+    // act
+                   |> set (fun a -> a.EndDate <- Some tomorrow)
+    // assert
+    test <@ activity.EndDate = Some tomorrow @>
+
+[<Fact>]
+let ``StartDate should be None if not set`` () =
+    // act
+    let activity = pim.Activity()
+    // assert
+    test <@ activity.StartDate = None @>
+
+let ``Should be able to set StartDate to None`` () =
+    // arrange
+    let now = System.DateTime.Now
+    let activity = pim.Activity(StartDate = Some now)
+    // act
+                   |> set (fun d -> d.StartDate <- None)
+    // assert
+    test <@ activity.StartDate = None @>
