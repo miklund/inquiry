@@ -37,3 +37,29 @@ let ``Can set task due date`` () =
     let task = pim.Task(pim.Users.cert9, DueDate = Some tomorrow)
     // assert
     test <@ task.DueDate = Some tomorrow @>
+
+[<Fact>]
+let ``Email property should be None by default`` () =
+    // act
+    let task = pim.Task(pim.Users.cert9)
+    // assert
+    test <@ task.Email = None @>
+
+[<Fact>]
+let ``Should be able to set email property to value`` () =
+    // arrange
+    let task = pim.Task(pim.Users.cert9)
+    // act
+               |> set (fun t -> t.Email <- Some true)
+    // assert
+    test <@ task.Email = Some true @>
+
+
+[<Fact>]
+let ``Should be able to set email property to None`` () =
+    // arrange
+    let task = pim.Task(pim.Users.cert9, Email = Some true)
+    // act
+               |> set (fun t -> t.Email <- None)
+    // assert
+    test <@ task.Email = None @>

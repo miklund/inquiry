@@ -117,3 +117,37 @@ let ``Should be able to add translation to the long product description`` () =
                   |> set (fun p -> p.LongDescription <- p.LongDescription.Add ("sv", "En lång beskrivning på svenska"))
     // assert
     test <@ product.LongDescription |> Map.find "sv" = "En lång beskrivning på svenska" @>
+
+[<Fact>]
+let ``Default value of product approved should be false`` () =
+    // act
+    let product = pim.Product("ABC123")
+    // assert
+    test <@ product.Approved = Some false @>
+
+[<Fact>]
+let ``Can set product approved in constructor to true`` () =
+    // act
+    let product = pim.Product("ABC123", approved = true)
+    // assert
+    test <@ product.Approved = Some true @>
+
+[<Fact>]
+let ``Can set product approved property to true`` () =
+    // arrange
+    let product = pim.Product("ABC123")
+    // act
+                  |> set (fun p -> p.Approved <- Some true)
+    // assert
+    test <@ product.Approved = Some true @>
+
+[<Fact>]
+let ``Cannot set product approved to None because it is mandatory`` () =
+    // arrange
+    let product = pim.Product "ABC123"
+    // act
+    let code = fun () -> product |> set (fun p -> p.Approved <- None) |> ignore
+    // assert
+    Assert.Throws(code) |> ignore
+
+

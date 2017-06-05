@@ -713,15 +713,32 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             (entity |> getFieldData fieldTypeID) :?> double
             @>
 
-    let booleanValueExpression fieldTypeID =
+    let getBooleanValueExpression fieldTypeID =
         fun (args : Expr list) ->
-        <@
+        <@@
             // get the entity
             let entity = (%% args.[0] : Entity)
             // convert the value to bool
-            (entity |> getFieldData fieldTypeID) :?> bool
-            @>
+            match (entity |> getFieldData fieldTypeID) with
+            | null -> None
+            | o -> Some (o :?> bool)
+            @@>
         
+    let setBooleanValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the value
+            match (%% args.[1] : bool option) with
+            // if some value set it
+            | Some value -> entity.Entity.GetField(fieldTypeID).Data <- value
+            // if no value, but field is mandatory = fail
+            | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
+            @@>
+
     let cvlValueExpression cvlId fieldTypeID =
         fun (args : Expr list) ->
         <@
@@ -798,7 +815,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | LocaleString -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((getLocaleStringValueExpression fieldTypeID) >> uncheckedExpression), SetterCode = (setLocaleStringValueExpression fieldTypeID))
         | DateTime -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDateTimeValueExpression fieldTypeID), SetterCode = (setDateTimeValueExpression fieldTypeID))
         | Integer -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getIntegerValueExpression fieldTypeID), SetterCode = (setIntegerValueExpression fieldTypeID))
-        | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
+        | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getBooleanValueExpression fieldTypeID), SetterCode = (setBooleanValueExpression fieldTypeID))
         | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
         | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
         | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
