@@ -75,3 +75,10 @@ let ``Can set campaign end date`` () =
     let campaign = pim.Campaign("Spring sale", EndDate = Some tomorrow)
     // assert
     test <@ campaign.EndDate = Some tomorrow @>
+
+[<Fact>]
+let ``Should be able to set demo`` () =
+    // act
+    let campaign = pim.Campaign("Spring Sale", Demo = Some 1)
+    // assert
+    test <@ campaign.Demo = Some 1 @>

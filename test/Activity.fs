@@ -118,6 +118,7 @@ let ``StartDate should be None if not set`` () =
     // assert
     test <@ activity.StartDate = None @>
 
+[<Fact>]
 let ``Should be able to set StartDate to None`` () =
     // arrange
     let now = System.DateTime.Now
@@ -126,3 +127,33 @@ let ``Should be able to set StartDate to None`` () =
                    |> set (fun d -> d.StartDate <- None)
     // assert
     test <@ activity.StartDate = None @>
+
+[<Fact>]
+let ``Activity length should be None unless set`` () =
+    // act
+    let activity = pim.Activity()
+    // assert
+    test <@ activity.Length = None @>
+
+[<Fact>]
+let ``Should be able to set activity Length value`` () =
+    // act
+    let activity = pim.Activity(Length = Some 123)
+    // assert
+    test <@ activity.Length = Some 123 @>
+
+[<Fact>]
+let ``Should be able to set activity Length to None`` () =
+    // arrange
+    let activity = pim.Activity(Length = Some 123)
+    // act
+                   |> set (fun a -> a.Length <- None)
+    // assert
+    test <@ activity.Length = None @>
+
+[<Fact>]
+let ``Should be able to set relative start`` () =
+    // act
+    let activity = pim.Activity(RelStart = Some 321)
+    // assert
+    test <@ activity.RelStart = Some 321 @>

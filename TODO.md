@@ -1,3 +1,13 @@
+v1.0
+
+Requirements for taking the step to 1.0
+
+* Running inQuiry in at least 10 different production scenarios
+* Have a working contributing open source project including rules of conduct, and having recieved and merged at least 5 pull requests
+* Support for multiversion inRiver
+* Support for .NET Core
+
+
 v0.5
 
 Setup a CI pipeline. Use travic-ci in order to build each new commit to VCS.

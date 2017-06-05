@@ -625,7 +625,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | None -> entity.Entity.GetField(fieldTypeID).Data <- null            
             @@>
             
-    let localeStringValueExpression fieldTypeID =
+    let getLocaleStringValueExpression fieldTypeID =
         fun (args : Expr list) ->
         <@
             // get the entity
@@ -651,17 +651,34 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 entity.Entity.GetField(fieldTypeID).Data <- value |> toObjects
                 @@>
 
-    let integerValueExpression fieldTypeID =
+    let getIntegerValueExpression fieldTypeID =
         fun (args : Expr list) ->
-        <@
+        <@@
             // get the entity
             let entity = (%%(args.[0]) : Entity)
             // convert the value to int
-            (entity |> getFieldData fieldTypeID) :?> int
-            @>
+            match (entity |> getFieldData fieldTypeID) with
+            | null -> None
+            | o -> Some (o :?> int)
+            @@>
+
+    let setIntegerValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the value
+            match (%% args.[1] : int option) with
+            // if some value set it
+            | Some value -> entity.Entity.GetField(fieldTypeID).Data <- value
+            // if no value, but field is mandatory = fail
+            | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
+            @@>
 
     // Expr list -> Expr<DateTime option>
-    let dateTimeValueExpression fieldTypeID =
+    let getDateTimeValueExpression fieldTypeID =
         fun (args : Expr list) ->
         <@@
             // get the entity
@@ -676,15 +693,15 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         fun (args : Expr list) ->
         <@@
             // get the entity
-                let entity = (%% args.[0] : Entity)
-                // get the value
-                match (%% args.[1] : DateTime option) with
-                // if some value set it
-                | Some value -> entity.Entity.GetField(fieldTypeID).Data <- value
-                // if no value, but field is mandatory = fail
-                | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
-                // if no value, set to null (this is also for primitive types)
-                | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
+            let entity = (%% args.[0] : Entity)
+            // get the value
+            match (%% args.[1] : DateTime option) with
+            // if some value set it
+            | Some value -> entity.Entity.GetField(fieldTypeID).Data <- value
+            // if no value, but field is mandatory = fail
+            | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
             @@>
 
     let doubleValueExpression fieldTypeID =
@@ -778,9 +795,9 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         // match on data types and if fieldType is mandatory or not
         match dataType with
         | String -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression), SetterCode = (setStringValueExpression fieldTypeID))
-        | LocaleString -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((localeStringValueExpression fieldTypeID) >> uncheckedExpression), SetterCode = (setLocaleStringValueExpression fieldTypeID))
-        | DateTime -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (dateTimeValueExpression fieldTypeID), SetterCode = (setDateTimeValueExpression fieldTypeID))
-        | Integer -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((integerValueExpression fieldTypeID) >> optionPropertyExpression))
+        | LocaleString -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((getLocaleStringValueExpression fieldTypeID) >> uncheckedExpression), SetterCode = (setLocaleStringValueExpression fieldTypeID))
+        | DateTime -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDateTimeValueExpression fieldTypeID), SetterCode = (setDateTimeValueExpression fieldTypeID))
+        | Integer -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getIntegerValueExpression fieldTypeID), SetterCode = (setIntegerValueExpression fieldTypeID))
         | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((booleanValueExpression fieldTypeID) >> optionPropertyExpression))
         | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
         | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
