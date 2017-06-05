@@ -704,14 +704,31 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
             @@>
 
-    let doubleValueExpression fieldTypeID =
+    let getDoubleValueExpression fieldTypeID =
         fun (args : Expr list) ->
-        <@
+        <@@
             // get the entity
             let entity = (%% args.[0] : Entity)
             // convert the value to double
-            (entity |> getFieldData fieldTypeID) :?> double
-            @>
+            match (entity |> getFieldData fieldTypeID) with
+            | null -> None
+            | o -> Some (o :?> double)
+            @@>
+
+    let setDoubleValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the value
+            match (%% args.[1] : double option) with
+            // if some value set it
+            | Some value -> entity.Entity.GetField(fieldTypeID).Data <- value
+            // if no value, but field is mandatory = fail
+            | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
+            @@>
 
     let getBooleanValueExpression fieldTypeID =
         fun (args : Expr list) ->
@@ -816,7 +833,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | DateTime -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDateTimeValueExpression fieldTypeID), SetterCode = (setDateTimeValueExpression fieldTypeID))
         | Integer -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getIntegerValueExpression fieldTypeID), SetterCode = (setIntegerValueExpression fieldTypeID))
         | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getBooleanValueExpression fieldTypeID), SetterCode = (setBooleanValueExpression fieldTypeID))
-        | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((doubleValueExpression fieldTypeID) >> optionPropertyExpression))
+        | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDoubleValueExpression fieldTypeID), SetterCode = (setDoubleValueExpression fieldTypeID))
         | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((cvlValueExpression id fieldTypeID) >> optionPropertyExpression))
         | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
         | File -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
