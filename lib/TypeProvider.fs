@@ -854,7 +854,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getBooleanValueExpression fieldTypeID), SetterCode = (setBooleanValueExpression fieldTypeID))
         | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDoubleValueExpression fieldTypeID), SetterCode = (setDoubleValueExpression fieldTypeID))
         | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getCvlValueExpression id fieldTypeID), SetterCode = (setCvlValueExpression fieldTypeID))
-        | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
+        | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression), SetterCode = (setStringValueExpression fieldTypeID))
         | File -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
 
     member this.createProvidedTypeDefinition assembly ns =

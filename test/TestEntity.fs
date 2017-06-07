@@ -96,3 +96,21 @@ let ``TestXML should be able to set XML value from constructor`` () =
     let instance = pim.Test("XmlTest", xml = xml)
     // assert
     test <@ instance.Xml = Some xml @>
+
+[<Fact>]
+let ``Cannot set TestXML to None because it is mandatory`` () =
+    // arrange
+    let instance = pim.Test("XmlTest", xml = "<root><name>Bertil</name></root>")
+    // act
+    let code = fun () -> instance |> set (fun t -> t.Xml <- None) |> ignore
+    // assert
+    ignore <| Assert.Throws(code) 
+
+[<Fact>]
+let ``Can update TestXML with a new value`` () =
+    // arrange
+    let instance = pim.Test("XmlTest", xml = "<root><name>Bertil</name></root>")
+    // act
+                   |> set (fun t -> t.Xml <- Some "<root><name>Berit</name></root>")
+    // assert
+    test <@ instance.Xml = Some "<root><name>Berit</name></root>" @>
