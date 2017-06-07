@@ -15,15 +15,16 @@ let ``Default value of Id should be guid`` () =
     // act
     let section = pim.Section()
     // assert
-    let success, guid = System.Guid.TryParse(section.SectionId.Value)
-    test <@ success @>
+    test <@ section.SectionId <> Some System.Guid.Empty @>
 
 [<Fact>]
 let ``Can set section Id`` () =
+    // arrange
+    let guid = System.Guid.NewGuid()
     // act
-    let section = pim.Section(SectionId = Some "1")
+    let section = pim.Section(SectionId = Some guid)
     // assert
-    test <@ section.SectionId = Some "1" @>
+    test <@ section.SectionId = Some guid @>
 
 [<Fact>]
 let ``Can set section Name`` () =

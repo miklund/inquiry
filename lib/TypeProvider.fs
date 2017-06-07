@@ -74,21 +74,24 @@ type DataType =
     | LocaleString 
     | String 
     | Xml
+    | Guid
 
-    /// Parsing a string * string into a data type. First part of the tuple is
-    /// the `Objects.EntityType.DataType` string and the second part is the
-    /// `Objects.EntityType.CVLId`, as CVLs are references to other types.
-    static member parse = function
-        | "Boolean", _ -> Boolean
-        | "CVL", id -> CVL id
-        | "DateTime", _ -> DateTime
-        | "Double", _ -> Double
-        | "File", _ -> File
-        | "Integer", _ -> Integer
-        | "LocaleString", _ -> LocaleString
-        | "String", _ -> String
-        | "Xml", _ -> Xml
-        | dt, _ -> failwith (sprintf "Unknown field data type: %s" dt)
+    /// Parsing a Objects.FieldType into a data type. Mostly using the DataType
+    /// property to determine the type, but also CvlID and DefaultValue to
+    /// figure out if a string should be a Guid
+    static member parse (fieldType : Objects.FieldType) =
+        match fieldType with
+        | ft when ft.DataType = "Boolean" -> Boolean
+        | ft when ft.DataType = "CVL"-> CVL (ft.CVLId)
+        | ft when ft.DataType = "DateTime" -> DateTime
+        | ft when ft.DataType = "Double" -> Double
+        | ft when ft.DataType = "File" -> File
+        | ft when ft.DataType = "Integer" -> Integer
+        | ft when ft.DataType = "LocaleString" -> LocaleString
+        | ft when ft.DataType = "String" && ft.DefaultValue = "guid" -> Guid
+        | ft when ft.DataType = "String" -> String
+        | ft when ft.DataType = "Xml" -> Xml
+        | _ -> failwith "Failed to determine the data type from the field type."
 
 /// CVL stands for Custom Value List and it is a kind of advanced Enum, quite
 /// similiar to the Category concept in EPiServer CMS. This type is the base
@@ -102,7 +105,7 @@ type CVLNode (cvlType : Objects.CVL, cvlValue : Objects.CVLValue) =
     member this.CvlValue = cvlValue
 
     /// A CVL can be either of type `String` or `LocaleString`.
-    member this.DataType = (cvlType.DataType, cvlValue.CVLId) |> DataType.parse
+    member this.DataType = match cvlType.DataType with | "String" -> String | "LocaleString" -> LocaleString | _ -> failwith "CVL can only have String or LocaleString as datatype"
     
     override x.GetHashCode () =
         hash (cvlType, cvlValue)
@@ -278,7 +281,7 @@ let toCamelCase = function
 /// If the field is of type File and has a "Id" suffix, remove the suffix.
 let fileNameFieldConvention (fieldType : Objects.FieldType) (input : string) =
     // if field type is  File
-    if (fieldType.DataType, fieldType.CVLId) |> DataType.parse = File then
+    if fieldType |> DataType.parse = File then
         // replace the Id suffix with Data
         // it would be better to just remove the suffix, but what if the name
         // of the property is `Id`, then the result would be empty string,
@@ -318,6 +321,13 @@ let uncheckedExpression (valueExpression : Expr<'a>) =
     <@@ (% valueExpression : 'a ) @@>
 
 
+// We need to parse string as guid, but quotation expressions can't
+// deal with ref parameters. That is why we make a wrapper like this.
+type System.Guid with
+    static member tryParse s =
+        match System.Guid.TryParse(s) with
+        | success, guid -> (success, guid)
+
 //
 // TYPE FACTORIES
 // - EntityTypeFactory for creating Product, Item, Resource and so on
@@ -343,6 +353,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | Integer -> typeof<int>
         | LocaleString -> typeof<LocaleString>
         | String | Xml -> typeof<string>
+        | Guid -> typeof<Guid>
 
     // Get the Option type for data type
     let toOptionType dataType =
@@ -394,7 +405,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
 
         // map field type to provided parameter
         List.map (fun (fieldType : Objects.FieldType) ->
-            let dataType = DataType.parse (fieldType.DataType, fieldType.CVLId)
+            let dataType = DataType.parse fieldType
             // these fields are all mandatory
             if fieldType.DefaultValue = null then
                 // so they are required as constructor parameters
@@ -427,7 +438,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 |> List.zip fieldTypes
                 |> List.fold (fun entityExpr (fieldType, argExpr) ->
                     let fieldTypeId = fieldType.Id
-                    match DataType.parse (fieldType.DataType, fieldType.CVLId) with
+                    match DataType.parse fieldType with
                     | String | Xml ->
                         <@
                             let entity = (% entityExpr : Entity)
@@ -448,6 +459,23 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                                 else
                                     // overwrite default value with provided value
                                     entity.Entity.GetField(fieldTypeId).Data <- value
+                            entity
+                            @>
+                    | Guid ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            let value = (%% argExpr : Guid)
+                            // NOTE This does not follow the pattern of other constructor setters, because
+                            // it is different. DefaultValue will never be null, it will always be "guid".
+                            // This means there will always be a generated guid in the Data field, but ..
+                            // perhaps the user will send a guid they want instead. Then we'll overwrite
+                            // the generated guid.
+                            if value = System.Guid.Empty then
+                                // default generated guid is fine
+                                ()
+                            else
+                                // overwrite the generated guid with this guid
+                                entity.Entity.GetField(fieldTypeId).Data <- value.ToString()
                             entity
                             @>
                     | Integer ->
@@ -660,6 +688,32 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
             // if no value, set to null (this is also for primitive types)
             | None -> entity.Entity.GetField(fieldTypeID).Data <- null            
+            @@>
+
+    let getGuidValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // convert the value to Guid
+            match Guid.tryParse(entity |> getFieldData fieldTypeID :?> string) with
+            | true, guid -> Some guid
+            | false, _ -> None
+            @@>
+
+    let setGuidValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the value
+            match (%% args.[1] : Guid option) with
+            // if some value set it
+            | Some value -> entity.Entity.GetField(fieldTypeID).Data <- value.ToString()
+            // if no value, but field is mandatory = fail
+            | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | None -> entity.Entity.GetField(fieldTypeID).Data <- null  
             @@>
             
     let getLocaleStringValueExpression fieldTypeID =
@@ -909,7 +963,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
 
     let fieldToProperty (fieldType : Objects.FieldType) propertyName =
         let fieldTypeID = fieldType.Id
-        let dataType = DataType.parse (fieldType.DataType, fieldType.CVLId)
+        let dataType = DataType.parse fieldType
 
         // match on data types and if fieldType is mandatory or not
         match dataType with
@@ -922,6 +976,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getCvlValueExpression id fieldTypeID), SetterCode = (setCvlValueExpression fieldTypeID))
         | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression), SetterCode = (setStringValueExpression fieldTypeID))
         | File -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getFileValueExpression fieldTypeID) >> uncheckedExpression), SetterCode = (setFileValueExpression fieldTypeID))
+        | Guid -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getGuidValueExpression fieldTypeID), SetterCode = (setGuidValueExpression fieldTypeID))
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type
@@ -1027,7 +1082,8 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
         typeDefinition.AddMembers cvlValues
 
         // create a value property with the cvl value
-        let valueProperty = ProvidedProperty("value", (cvlType.DataType |> toType), [], GetterCode = (cvlValuePropertyExpression ((cvlType.DataType, "") |> DataType.parse)))
+        let dataType = match cvlType.DataType with | "String" -> String | "LocaleString" -> LocaleString | _ -> failwith "CVL can only have String or LocaleString as datatype"
+        let valueProperty = ProvidedProperty("value", (cvlType.DataType |> toType), [], GetterCode = (cvlValuePropertyExpression dataType))
         typeDefinition.AddMembers [valueProperty]
 
         typeDefinition

@@ -36,7 +36,9 @@ v0.3
 
 The purpose of v0.3 is to query the inRiver API for several entities.
 
+* Query API
 * Opt-in logging for the code generation
+* Add XML comments for all the fields
 
 v0.2
 
@@ -44,33 +46,40 @@ The purpose of v0.2 is to retrieve a single entity, change it and save it back t
 
 ```fsharp
 let product = Product.GetByNumber("SKU123")
-let newProduct = { product with Number = "SKU 456"}
+let newProduct = product |> set (fun p -> p.Number = Some "SKU 456")
 newProduct.save() |> ignore
 ```
 
+* If the string field has default value 'guid', present the Property as Guid type instead
+* Implement Read-Only properties, shall not have a set property, but can be optional in constructor
+* Implement multivalue CVL fields
+* Xml field should be represented by XDocument and not string, string is the DTO data type
+* Implement GET-functions
+
 * Deal with relations between entities, handle links
-* Add XML comments for all the fields
-* Able to change values by immutable type syntax
 * Implement FieldSets
 * Implement Categories
-* Implement Read-Only properties, shall not have a set property, but can be optional in constructor
-* Implement MultiValue
 * Implement Unique
 * Implement Hidden
 * Implement Exclude from Default View
-* If the string field has default value 'guid', present the Property as Guid type instead
 * Create fsi files to protect internal members of the library
-* Implement multivalue CVL fields
+
+BUGS
+
+* BUG: CVL type Users is not generating all the CVL values
+* BUG: Can't handle a CVL with the same name as Entity
+
+DOCUMENTATION
+
+* Documentation of configuration switches
 * Write example on
   - How to work with the XML field, query and update it
   - How to filter out specific fieldsets
   - How to filter out categories
   - How to read and write properties
   - How to write an import extension importing data from XML to inRiver
-* Make the Resource integrated with its data
-* Xml field should be represented by XDocument and not string, string is the DTO data type
-* BUG: CVL type Users is not generating all the CVL values
-* BUG: Can't handle a CVL with the same name as Entity
+
+  META
+
 * Create a logo for the nuget package
 * Add a reference to System.Configuration in nuget package
-* Documentation of configuration switches
