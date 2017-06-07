@@ -82,8 +82,8 @@
     <Compile Include="Industry.fs" />
     <Compile Include="Item.fs" />
     <Compile Include="Milestone.fs" />
-    <Compile Include="Resource.fs" />
     <Compile Include="Product.fs" />
+    <Compile Include="Resource.fs" />
     <Compile Include="Section.fs" />
     <Compile Include="Specification.fs" />
     <Compile Include="Task.fs" />
@@ -99,6 +99,7 @@
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
     <ProjectReference Include="..\lib\lib.fsproj">

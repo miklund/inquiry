@@ -107,6 +107,9 @@ module inRiverService =
     let createFile fileName data =
         remoteManager.Force().utilService.AddFile(fileName, data)
 
+    let deleteFile fileId =
+        remoteManager.Force().utilService.DeleteFile(fileId)
+
     // save entity to inriver
     let save (entity : inRiver.Remoting.Objects.Entity) =
         if entity.Id > 0 then

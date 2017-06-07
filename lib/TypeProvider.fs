@@ -136,6 +136,11 @@ type Entity (entityType, entity : Objects.Entity)  =
     /// The `Object.EntityType` that this type is generated from.
     member this.EntityType = entityType
     
+    /// A window into the internal file representation. Please do
+    /// not access this directly. Instead use the File property on
+    /// entity you want to modify.
+    member this.Files = files
+
     /// Get all new files stored in this entity with the return type
     /// string * string * string. The first value of the tuple is the
     /// fileTypeId this file belongs to. The second is the filename and
@@ -275,6 +280,9 @@ let fileNameFieldConvention (fieldType : Objects.FieldType) (input : string) =
     // if field type is  File
     if (fieldType.DataType, fieldType.CVLId) |> DataType.parse = File then
         // replace the Id suffix with Data
+        // it would be better to just remove the suffix, but what if the name
+        // of the property is `Id`, then the result would be empty string,
+        // which would not suffice as a legal property name.
         System.Text.RegularExpressions.Regex.Replace(input, "Id$", "Data")
     else
         // otherwise return as it is
@@ -584,14 +592,43 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         <@@
             let entity = (%% args.[0] : Entity)
             try
+                // the following files are about to be orphaned
+                let deleteOrphanedFiles = System.Configuration.ConfigurationManager.AppSettings.["inQuiry:deleteOrphanedFiles"]
+                let orphanedFileIds =
+                    // client has to activly configure this library to delete orphaned files
+                    if "true".Equals(deleteOrphanedFiles, StringComparison.InvariantCultureIgnoreCase) then
+                        entity.NewFiles
+                        // only field types that are unique or we can't know that its orphaned
+                        |> Seq.filter (fun (fieldTypeId, _, _) -> entity.Entity.GetField(fieldTypeId).FieldType.Unique)
+                        // only where the field already has a value
+                        |> Seq.filter (fun (fieldTypeId, _, _) -> entity.Entity.GetField(fieldTypeId).Data <> null)
+                        // get the file Ids
+                        |> Seq.map (fun (fieldTypeId, _, _) -> entity.Entity.GetField(fieldTypeId).Data :?> int)
+                        |> Seq.toList
+                    else
+                        []
+
                 // must save files first
                 entity.NewFiles
                 |> Seq.map (fun (fieldTypeId, fileName, data) -> fieldTypeId, inRiverService.createFile fileName data)
-                // update the entity
+                // update the entity with fileId
+                // NOTE This might mean that the previous fileId is overwritten
+                // by a new fileId, and in that case the previous file might be
+                // orphaned. We can't really know in this stage if the file is
+                // used anywhere else, so we leave it as it is. The consumer
+                // of this API will have to deal with orphaned files.
                 |> Seq.iter (fun (fieldTypeId, fileId) -> entity.Entity.GetField(fieldTypeId).Data <- fileId)
+
+                // delete orphanded files
+                orphanedFileIds |> List.map inRiverService.deleteFile |> ignore
+
+                // new files are now persisted files
+                entity.NewFiles
+                |> Seq.iter (fun (fieldTypeId, fileName, data) ->  ignore <| entity.setPersistedFileData fieldTypeId data)
 
                 // save to inRiver -> wrap result entity in TEntity instance
                 Ok (Entity(inRiverService.save(entity.Entity)))
+
             with
                 | ex -> Error ex
             @@>
@@ -795,24 +832,53 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
             @@>
 
-    let fileValueExpression fieldTypeID =
+    let getFileValueExpression fieldTypeID =
         fun (args : Expr list) ->
         <@
             // get the entity
             let entity = (%%(args.[0]) : Entity)
 
-            match entity.getFileData fieldTypeID with
-            | Some data -> data                
+            match entity.Files |> Map.tryFind fieldTypeID with
+            | Some file -> Some file
             | None ->
-                // get the file id
-                let fileId = entity.Entity.GetField(fieldTypeID).Data :?> int
-                // get the file data
-                let data = inRiverService.getFile fileId
-                // store the value in internal cache and return
-                ignore <| entity.setPersistedFileData fieldTypeID data
-                // return data
-                data
+                if entity.Entity.GetField(fieldTypeID).Data = null then
+                    // the fileId field is not set => no file
+                    None
+                else
+                    // get the file id
+                    let fileId = entity.Entity.GetField(fieldTypeID).Data :?> int
+                    // get the file data
+                    let data = inRiverService.getFile fileId
+
+                    if data = null then
+                        // no file with that fileId was found (uh-oh!) => None
+                        None
+                    else
+                        // store the value in internal cache and return
+                        ignore <| entity.setPersistedFileData fieldTypeID data
+                        // return data
+                        Some (Persisted data)
             @>
+
+    let setFileValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the value
+            match (%% args.[1] : File option) with
+            | Some file -> 
+                if (file :> obj) = null then
+                    failwith (sprintf "Unable to create %s with %s as null value" entity.EntityType.Id fieldTypeID)
+                else
+                    // store file in entity cache, it will be saved later by save function
+                    entity.setFile fieldTypeID file
+            // if no value, but field is mandatory = fail
+            | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | None -> entity.Entity.GetField(fieldTypeID).Data <- null                 
+            @@>
+            
 
     // try to create a property name that does not conflict with anything else on the entity
     // Example: A Product entity with the field ProductCreatedBy would conflict with the Entity.CreatedBy property
@@ -855,11 +921,10 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDoubleValueExpression fieldTypeID), SetterCode = (setDoubleValueExpression fieldTypeID))
         | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getCvlValueExpression id fieldTypeID), SetterCode = (setCvlValueExpression fieldTypeID))
         | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression), SetterCode = (setStringValueExpression fieldTypeID))
-        | File -> ProvidedProperty(propertyName, typeof<byte[]>, [], GetterCode = ((fileValueExpression fieldTypeID) >> uncheckedExpression))
+        | File -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getFileValueExpression fieldTypeID) >> uncheckedExpression), SetterCode = (setFileValueExpression fieldTypeID))
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type
-        //let typeDefinition = ProvidedTypeDefinition(assembly, ns, entityType.Id, Some typeof<Entity>)
         let typeDefinition = ProvidedTypeDefinition(entityType.Id, Some typeof<Entity>)
         typeDefinition.HideObjectMethods <- true;
         

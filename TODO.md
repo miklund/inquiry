@@ -72,3 +72,5 @@ newProduct.save() |> ignore
 * BUG: CVL type Users is not generating all the CVL values
 * BUG: Can't handle a CVL with the same name as Entity
 * Create a logo for the nuget package
+* Add a reference to System.Configuration in nuget package
+* Documentation of configuration switches
