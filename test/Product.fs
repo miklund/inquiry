@@ -13,14 +13,14 @@ type pim = inRiverProvider<"http://localhost:8080", "pimuser1", "pimuser1">
 [<Fact>]
 let ``Should be able to create a new instance of product`` () =
     // act
-    let instance = pim.Product("ABC123", pim.ProductStatus.webready, false)
+    let instance = pim.Product("ABC123", [pim.ProductStatus.webready], false)
     // assert
     test <@ instance.GetType() = typeof<pim.Product> @>
 
 [<Fact>]
 let ``Mandatory parameter ProductNumber injected in constructor should be set to entity`` () =
     // act
-    let instance = pim.Product("ABC123", pim.ProductStatus.printready, false)
+    let instance = pim.Product("ABC123", [pim.ProductStatus.printready], false)
     // assert
     test <@ instance.Number = Some "ABC123" @>
 
@@ -29,14 +29,14 @@ let ``Mandatory parameter ProductApproved injected in constructor should be set 
     // arrange
     let productApproved = true
     // act
-    let instance = pim.Product("ABC123", pim.ProductStatus.underenrichment, productApproved)
+    let instance = pim.Product("ABC123", [pim.ProductStatus.underenrichment], productApproved)
     // assert
     test <@ instance.Approved = Some productApproved @>
 
 [<Fact>]
 let ``Constructor parameters should apply naming conventions removing the word product and use camel case`` () =
     // act
-    let instance = pim.Product(number = "ABC123", status = pim.ProductStatus.webready, approved = true)
+    let instance = pim.Product(number = "ABC123", status = [pim.ProductStatus.webready], approved = true)
     // assert
     test <@ instance.GetType() = typeof<pim.Product> @>
 
@@ -65,16 +65,16 @@ let ``A product should have localized product name`` () =
 [<Fact>]
 let ``ProductStatus CVL should be set in the constructor`` () =
     // act
-    let product = pim.Product("ABC123", status = pim.ProductStatus.underenrichment)
+    let product = pim.Product("ABC123", status = [pim.ProductStatus.underenrichment])
     // assert
-    test <@ product.Status = Some(pim.ProductStatus.underenrichment) @>
+    test <@ product.Status = [pim.ProductStatus.underenrichment] @>
    
 [<Fact>]
 let ``Default value of ProductStatus should be new`` () =
     // act
     let product = pim.Product("ABC123")
     // assert
-    test <@ product.Status = Some(pim.ProductStatus.``new``) @>
+    test <@ product.Status = [pim.ProductStatus.``new``] @>
 
 [<Fact>]
 let ``ProductNumber is the DisplayName`` () =
@@ -174,9 +174,23 @@ let ``Can set product sub category to casual`` () =
 [<Fact>]
 let ``Can set product market to sweden`` () =
     // act
-    let product = pim.Product("ABC123", Market = Some pim.Market.se)
+    let product = pim.Product("ABC123", Market = [pim.Market.se])
     // assert
-    test <@ product.Market = Some pim.Market.se @>
+    test <@ product.Market = [pim.Market.se] @>
+
+[<Fact>]
+let ``Can set product market to sweden and us`` () =
+    // act
+    let product = pim.Product("ABC123", Market = [pim.Market.se; pim.Market.us])
+    // assert
+    test <@ product.Market = [pim.Market.se; pim.Market.us] @>
+
+[<Fact>]
+let ``Market is de;dk;fi;gb;nl;no;se;us by default`` () =
+    // act
+    let product = pim.Product("ABC123")
+    // assert
+    test <@ product.Market = [pim.Market.de;pim.Market.dk;pim.Market.fi;pim.Market.gb;pim.Market.nl;pim.Market.no;pim.Market.se;pim.Market.us] @>
 
 [<Fact>]
 let ``Can set product brand to bosch`` () =
@@ -190,21 +204,21 @@ let ``Default product status shall be new`` () =
     // act
     let product = pim.Product("ABC123")
     // assert
-    test <@ product.Status = Some pim.ProductStatus.``new`` @>
+    test <@ product.Status = [pim.ProductStatus.``new``] @>
 
 [<Fact>]
 let ``Can update the product status to web ready`` () =
     // act
-    let product = pim.Product("ABC123", Status = Some pim.ProductStatus.webready)
+    let product = pim.Product("ABC123", Status = [pim.ProductStatus.webready])
     // assert
-    test <@ product.Status = Some pim.ProductStatus.webready @>
+    test <@ product.Status = [pim.ProductStatus.webready] @>
 
 [<Fact>]
 let ``Cannot set the product status to None`` () =
     // arrange
     let product = pim.Product("ABC123")
     // act
-    let code = fun () -> product |> set (fun p -> p.Status <- None) |> ignore
+    let code = fun () -> product |> set (fun p -> p.Status <- []) |> ignore
     // assert
     ignore <| Assert.Throws(code)
 
@@ -218,6 +232,13 @@ let ``Can set the product fashion gender to unisex`` () =
 [<Fact>]
 let ``Can set the product translation status complete to Swedish`` () =
     // act
-    let product = pim.Product("ABC123", TranslationStatus = Some pim.ProductTranslationComplete.Swedish)
+    let product = pim.Product("ABC123", TranslationStatus = [pim.ProductTranslationComplete.Swedish])
     // assert
-    test <@ product.TranslationStatus = Some pim.ProductTranslationComplete.Swedish @>
+    test <@ product.TranslationStatus = [pim.ProductTranslationComplete.Swedish] @>
+
+[<Fact>]
+let ``Can set the product translation status complete to Swedish and Dannish`` () =
+    // act
+    let product = pim.Product("ABC123", TranslationStatus = [pim.ProductTranslationComplete.Swedish; pim.ProductTranslationComplete.Dannish])
+    // assert
+    test <@ product.TranslationStatus = [pim.ProductTranslationComplete.Swedish; pim.ProductTranslationComplete.Dannish] @>

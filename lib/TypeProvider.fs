@@ -66,7 +66,8 @@ type FileCache = Map<string, File>
 /// matching on the data type less painful.
 type DataType = 
     | Boolean 
-    | CVL of string 
+    | CVL of string
+    | MultiValueCVL of string
     | DateTime 
     | Double 
     | File 
@@ -82,6 +83,7 @@ type DataType =
     static member parse (fieldType : Objects.FieldType) =
         match fieldType with
         | ft when ft.DataType = "Boolean" -> Boolean
+        | ft when ft.DataType = "CVL" && ft.Multivalue -> MultiValueCVL (ft.CVLId)
         | ft when ft.DataType = "CVL"-> CVL (ft.CVLId)
         | ft when ft.DataType = "DateTime" -> DateTime
         | ft when ft.DataType = "Double" -> Double
@@ -238,7 +240,9 @@ type Entity (entityType, entity : Objects.Entity)  =
 
     member this.Version = entity.Version
     
-
+/// An immutable set function that will help you work with the entities
+/// in an immutable manner. Use it instead of accessing the properties
+/// directly
 let set<'a when 'a :> Entity> (update : 'a -> unit) (entity : 'a) =
     // Here I create a new instance of Entity and upcast it to 'a, ex. Product
     // This is not possible in normal code, you cannot upcast to a sub class.
@@ -328,6 +332,11 @@ type System.Guid with
         match System.Guid.TryParse(s) with
         | success, guid -> (success, guid)
 
+
+// wrapper making .NET String.join more functional to use
+let concat delimiter (items : string seq) =
+    System.String.Join(delimiter, items)
+
 //
 // TYPE FACTORIES
 // - EntityTypeFactory for creating Product, Item, Resource and so on
@@ -347,6 +356,8 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
     let toType = function
         | Boolean -> typeof<bool>
         | CVL id -> cvlTypes |> List.find (fun t -> t.Name = id) :> Type
+        | MultiValueCVL id -> 
+            typedefof<List<_>>.MakeGenericType([|cvlTypes |> List.find (fun t -> t.Name = id) :> Type|])
         | DateTime -> typeof<System.DateTime>
         | Double -> typeof<double>
         | File -> typeof<File>
@@ -591,6 +602,36 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                                 else
                                     // overwrite default value with provided value
                                     entity.Entity.GetField(fieldTypeId).Data <- value.CvlValue.Key
+                                entity
+                            @>
+                    | MultiValueCVL id ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            let field = entity.Entity.GetField(fieldTypeId)
+                            let values = (%% argExpr : CVLNode list)
+
+                            if field.FieldType.DefaultValue = null then
+                                // this is a mandatory constructor parameter
+                                entity.Entity.GetField(fieldTypeId).Data <-
+                                    values
+                                    // get the cvl keys
+                                    |> List.map (fun cvlNode -> cvlNode.CvlValue.Key)
+                                    // concat with semicolon delimiters
+                                    |> concat ";"
+                                entity
+                            else
+                                // this is an optional constructor parameter
+                                if (values :> obj) = null then
+                                    // use the default value set in empty constructor
+                                    ()
+                                else
+                                    // overwrite default value with provided value
+                                    entity.Entity.GetField(fieldTypeId).Data <- 
+                                        values
+                                        // get the cvl keys
+                                        |> List.map (fun cvlNode -> cvlNode.CvlValue.Key)
+                                        // concat with semicolon delimiters
+                                        |> concat ";"
                                 entity
                             @>
                     | File -> 
@@ -895,6 +936,50 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
             @@>
 
+    let getMultiValueCvlExpression cvlId fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the cvl keys
+            let cvlValueKeys = (entity |> getFieldData fieldTypeID) :?> string
+            if cvlValueKeys = null then
+                []
+            else
+                // get the cvl type
+                let cvlType = match inRiverService.getCvlTypeById cvlId with
+                              | Some cvlType -> cvlType
+                              | None -> failwith (sprintf "Was expecting CVL with id %s in service" cvlId)
+                
+                // read the individual keys from the string
+                cvlValueKeys.Split([|';'|])
+                |> Array.toList
+                // find CVL values for each key
+                |> List.choose (fun cvlValueKey -> inRiverService.getCvlValueByKey cvlId cvlValueKey)
+                // create CVL nodes
+                |> List.map (fun cvlValue -> CVLNode(cvlType, cvlValue))                        
+            @@>
+
+    let setMultiValueCvlExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = ( %% args.[0] : Entity)
+            // get the values
+            let cvlValues = 
+                (%% args.[1] : CVLNode list)
+                |> List.map (fun cvlNode -> cvlNode.CvlValue.Key)
+                |> concat ";"
+
+            match cvlValues with
+            // if no value, but field is mandatory = fail
+            | "" | null when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | "" | null -> entity.Entity.GetField(fieldTypeID).Data <- null
+            // if some value set it
+            | _ -> entity.Entity.GetField(fieldTypeID).Data <- cvlValues
+            @@>
+
     let getFileValueExpression fieldTypeID =
         fun (args : Expr list) ->
         <@
@@ -984,6 +1069,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getBooleanValueExpression fieldTypeID))
             | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDoubleValueExpression fieldTypeID))
             | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getCvlValueExpression id fieldTypeID))
+            | MultiValueCVL id -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = (getMultiValueCvlExpression id fieldTypeID))
             | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
             | File -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getFileValueExpression fieldTypeID) >> uncheckedExpression))
             | Guid -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getGuidValueExpression fieldTypeID))
@@ -1001,6 +1087,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 | Boolean -> setBooleanValueExpression fieldTypeID
                 | Double -> setDoubleValueExpression fieldTypeID
                 | CVL id -> setCvlValueExpression fieldTypeID
+                | MultiValueCVL id -> setMultiValueCvlExpression fieldTypeID
                 | Xml -> setStringValueExpression fieldTypeID
                 | File -> setFileValueExpression fieldTypeID
                 | Guid -> setGuidValueExpression fieldTypeID

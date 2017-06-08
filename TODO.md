@@ -51,7 +51,6 @@ pim.Product.GetByNumber("SKU123")
 |> ignore
 ```
 
-* Implement multivalue CVL fields
 * Xml field should be represented by XDocument and not string, string is the DTO data type
 * Implement GET-functions
 

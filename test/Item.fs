@@ -87,15 +87,29 @@ let ``Can change item status`` () =
 [<Fact>]
 let ``Can set fashion season`` () =
     // act
-    let item = pim.Item("ABC123", "<size/>", FashionSeason = Some pim.ItemSeason.FW2017)
+    let item = pim.Item("ABC123", "<size/>", FashionSeason = [pim.ItemSeason.FW2017])
     // assert
-    test <@ item.FashionSeason = Some pim.ItemSeason.FW2017 @>
+    test <@ item.FashionSeason = [pim.ItemSeason.FW2017] @>
+
+[<Fact>]
+let ``Can set several fashion seasons`` () =
+    // act
+    let item = pim.Item("ABC123", "<size/>", FashionSeason = [pim.ItemSeason.FW2015; pim.ItemSeason.FW2016])
+    // assert
+    test <@ item.FashionSeason = [pim.ItemSeason.FW2015; pim.ItemSeason.FW2016] @>
 
 [<Fact>]
 let ``Can set DIY market to us`` () =
     // arrange
     let item = pim.Item("ABC123", "<size/>")
     // act
-               |> set (fun i -> i.DIYMarket <- Some pim.Market.us)
+               |> set (fun i -> i.DIYMarket <- [pim.Market.us])
     // assert
-    test <@ item.DIYMarket = Some pim.Market.us @>
+    test <@ item.DIYMarket = [pim.Market.us] @>
+
+[<Fact>]
+let ``Can set DIY market to se and us`` () =
+    // arrange
+    let item = pim.Item("ABC123", "<size/>", DIYMarket = [pim.Market.se; pim.Market.us])
+    // assert
+    test <@ item.DIYMarket = [pim.Market.se; pim.Market.us] @>
