@@ -369,13 +369,18 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
     // filter all FieldTypes that are mandatory
     let mandatoryFieldTypes =
         entityType.FieldTypes
-        // filter out only mandatory fields
-        |> Seq.filter (fun fieldType -> fieldType.Mandatory || fieldType.ReadOnly)
-        // make sure they're sorted by index
-        |> Seq.sortBy (fun fieldType -> fieldType.Index)
-        // change their orders so mandatory without default value comes first
-        |> Seq.sortBy (fun fieldType -> if fieldType.DefaultValue = null then 1 else 2)
         |> Seq.toList
+        // filter out only mandatory fields
+        |> List.filter (fun fieldType -> fieldType.Mandatory || fieldType.ReadOnly)
+        // group by required parameters and not required
+        |> List.partition (fun fieldType -> fieldType.Mandatory && fieldType.DefaultValue = null)
+        // sort each group by index
+        |> fun (required, optional) ->
+            // sort the required fields by index
+            (required |> List.sortBy (fun fieldType -> fieldType.Index)) @ 
+            // sort the optional fields by index
+            (optional |> List.sortBy (fun fieldType -> fieldType.Index))
+            // concatenate
         
     let fieldTypeToProvidedParameter =
         // a constructor parameter name should remove the leading entityTypeID and make camel case
@@ -406,13 +411,17 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         // map field type to provided parameter
         List.map (fun (fieldType : Objects.FieldType) ->
             let dataType = DataType.parse fieldType
-            // these fields are all mandatory
-            if fieldType.DefaultValue = null then
-                // so they are required as constructor parameters
-                ProvidedParameter((providedParameterNamingConvention fieldType.Id), dataType |> toType)
-            else
-                // unless there is a default value, then the constructor parameter can be optional
-                ProvidedParameter((providedParameterNamingConvention fieldType.Id), (dataType |> toType), optionalValue = None )
+
+            // is mandatory, has default value, is read-only
+            match fieldType.Mandatory, fieldType.DefaultValue <> null, fieldType.ReadOnly with
+            // mandatory but no default value
+            | true, false, _ -> ProvidedParameter((providedParameterNamingConvention fieldType.Id), dataType |> toType)
+            // mandatory and has default value
+            | true, true, _ -> ProvidedParameter((providedParameterNamingConvention fieldType.Id), (dataType |> toType), optionalValue = None )
+            // not mandatory, but read-only with no default value
+            | false, _, true -> ProvidedParameter((providedParameterNamingConvention fieldType.Id), (dataType |> toType), optionalValue = None )
+            // not expected, some new case
+            | false, _, false -> failwith "Cannot create constructor, there should only be mandatory or read-only parameters"
             )
 
     let mandatoryProvidedParameters =
@@ -965,18 +974,39 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         let fieldTypeID = fieldType.Id
         let dataType = DataType.parse fieldType
 
-        // match on data types and if fieldType is mandatory or not
-        match dataType with
-        | String -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression), SetterCode = (setStringValueExpression fieldTypeID))
-        | LocaleString -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((getLocaleStringValueExpression fieldTypeID) >> uncheckedExpression), SetterCode = (setLocaleStringValueExpression fieldTypeID))
-        | DateTime -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDateTimeValueExpression fieldTypeID), SetterCode = (setDateTimeValueExpression fieldTypeID))
-        | Integer -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getIntegerValueExpression fieldTypeID), SetterCode = (setIntegerValueExpression fieldTypeID))
-        | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getBooleanValueExpression fieldTypeID), SetterCode = (setBooleanValueExpression fieldTypeID))
-        | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDoubleValueExpression fieldTypeID), SetterCode = (setDoubleValueExpression fieldTypeID))
-        | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getCvlValueExpression id fieldTypeID), SetterCode = (setCvlValueExpression fieldTypeID))
-        | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression), SetterCode = (setStringValueExpression fieldTypeID))
-        | File -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getFileValueExpression fieldTypeID) >> uncheckedExpression), SetterCode = (setFileValueExpression fieldTypeID))
-        | Guid -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getGuidValueExpression fieldTypeID), SetterCode = (setGuidValueExpression fieldTypeID))
+        // create property of different data types
+        let property =
+            match dataType with
+            | String -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
+            | LocaleString -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = ((getLocaleStringValueExpression fieldTypeID) >> uncheckedExpression))
+            | DateTime -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDateTimeValueExpression fieldTypeID))
+            | Integer -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getIntegerValueExpression fieldTypeID))
+            | Boolean -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getBooleanValueExpression fieldTypeID))
+            | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDoubleValueExpression fieldTypeID))
+            | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getCvlValueExpression id fieldTypeID))
+            | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
+            | File -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getFileValueExpression fieldTypeID) >> uncheckedExpression))
+            | Guid -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getGuidValueExpression fieldTypeID))
+        
+        if fieldType.ReadOnly then
+            // return property as it is and do not add setter
+            property
+        else
+            property.SetterCode <- 
+                match dataType with
+                | String -> setStringValueExpression fieldTypeID
+                | LocaleString -> setLocaleStringValueExpression fieldTypeID
+                | DateTime -> setDateTimeValueExpression fieldTypeID
+                | Integer -> setIntegerValueExpression fieldTypeID
+                | Boolean -> setBooleanValueExpression fieldTypeID
+                | Double -> setDoubleValueExpression fieldTypeID
+                | CVL id -> setCvlValueExpression fieldTypeID
+                | Xml -> setStringValueExpression fieldTypeID
+                | File -> setFileValueExpression fieldTypeID
+                | Guid -> setGuidValueExpression fieldTypeID
+
+            // return
+            property
 
     member this.createProvidedTypeDefinition assembly ns =
         // create the type

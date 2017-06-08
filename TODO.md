@@ -45,13 +45,12 @@ v0.2
 The purpose of v0.2 is to retrieve a single entity, change it and save it back to inRiver.
 
 ```fsharp
-let product = Product.GetByNumber("SKU123")
-let newProduct = product |> set (fun p -> p.Number = Some "SKU 456")
-newProduct.save() |> ignore
+pim.Product.GetByNumber("SKU123")
+|> set (fun p -> p.Number = Some "SKU 456")
+|> pim.Product.save 
+|> ignore
 ```
 
-* If the string field has default value 'guid', present the Property as Guid type instead
-* Implement Read-Only properties, shall not have a set property, but can be optional in constructor
 * Implement multivalue CVL fields
 * Xml field should be represented by XDocument and not string, string is the DTO data type
 * Implement GET-functions
@@ -83,3 +82,4 @@ DOCUMENTATION
 
 * Create a logo for the nuget package
 * Add a reference to System.Configuration in nuget package
+* Create a release, review all the documentation from previous release

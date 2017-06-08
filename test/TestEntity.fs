@@ -114,3 +114,33 @@ let ``Can update TestXML with a new value`` () =
                    |> set (fun t -> t.Xml <- Some "<root><name>Berit</name></root>")
     // assert
     test <@ instance.Xml = Some "<root><name>Berit</name></root>" @>
+
+[<Fact>]
+let ``A read-only field will be optional in the constructor`` () =
+    // act
+    let instance = pim.Test("XmlTest", author = "Mikael Lundin")
+    // assert
+    test <@ instance.Author = Some "Mikael Lundin" @>
+
+[<Fact>]
+let ``A read-only field will be optional in the constructor and yield None if not set`` () =
+    // act
+    let instance = pim.Test("XmlTest")
+    // assert
+    test <@ instance.Author = None @>
+
+[<Fact>]
+let ``A read-only mandatory field will be required in the constructor`` () = 
+    // act
+    let instance = pim.Test("XmlTest")
+    // assert
+    test <@ instance.Name = Some "XmlTest" @>
+
+[<Fact>]
+let ``A read-only mandatory field with default value will be optional in the constructor`` () =
+    // arrange
+    let name = "read-only mandatory with default value"
+    // act
+    let instance = pim.Test("XmlTest", testName = name)
+    // assert
+    test <@ instance.TestName = Some name @>
