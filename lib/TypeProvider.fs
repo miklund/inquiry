@@ -337,6 +337,16 @@ type System.Guid with
 let concat delimiter (items : string seq) =
     System.String.Join(delimiter, items)
 
+type Objects.FieldType with
+    /// This is required in constructor if marked as mandatory and do not have
+    /// a default value.
+    member this.RequiredConstructorParameter =
+        // mandatory without default value -> Required
+        (this.Mandatory, this.DefaultValue = null) = (true, true)
+    
+    member this.OptionalConstructorParameter = not this.RequiredConstructorParameter
+        
+
 //
 // TYPE FACTORIES
 // - EntityTypeFactory for creating Product, Item, Resource and so on
@@ -363,7 +373,8 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | File -> typeof<File>
         | Integer -> typeof<int>
         | LocaleString -> typeof<LocaleString>
-        | String | Xml -> typeof<string>
+        | String -> typeof<string>
+        | Xml -> typeof<System.Xml.Linq.XDocument>
         | Guid -> typeof<Guid>
 
     // Get the Option type for data type
@@ -459,23 +470,21 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 |> List.fold (fun entityExpr (fieldType, argExpr) ->
                     let fieldTypeId = fieldType.Id
                     match DataType.parse fieldType with
-                    | String | Xml ->
+                    | String ->
                         <@
                             let entity = (% entityExpr : Entity)
                             let value = (%% argExpr : string)
-                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
-                                // this is a mandatory constructor parameter
-                                entity.Entity.GetField(fieldTypeId).Data <- value
+                            if entity.Entity.GetField(fieldTypeId).FieldType.RequiredConstructorParameter then
+                                // this is a required constructor parameter
+                                if value <> null then
+                                    entity.Entity.GetField(fieldTypeId).Data <- value
+                                else
+                                    failwith (sprintf "Failed to create entity, %s.%s is required." entity.EntityType.Id fieldTypeId)
                             else
                                 // this is an optional constructor parameter
                                 if (value :> obj) = null then
                                     // use the default value
-                                    // NOTE we cannot trust the default constructor to set a default value
-                                    // for XML because the Remoting API seems broken in this aspect. This
-                                    // means if you have a mandatory XML value, you will not be able to
-                                    // create entities with the default value.
-                                    // We fix this here by setting the default value explicitly.
-                                    entity.Entity.GetField(fieldTypeId).Data <- entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue
+                                    ()
                                 else
                                     // overwrite default value with provided value
                                     entity.Entity.GetField(fieldTypeId).Data <- value
@@ -502,7 +511,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                         <@
                             let entity = (% entityExpr : Entity)
                             let value = (%% argExpr : int)
-                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                            if entity.Entity.GetField(fieldTypeId).FieldType.RequiredConstructorParameter then
                                 // this is a mandatory constructor parameter
                                 entity.Entity.GetField(fieldTypeId).Data <- value
                             else
@@ -519,7 +528,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                         <@
                             let entity = (% entityExpr : Entity)
                             let value = (%% argExpr : bool)
-                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                            if entity.Entity.GetField(fieldTypeId).FieldType.RequiredConstructorParameter then
                                 // this is a mandatory constructor parameter
                                 entity.Entity.GetField(fieldTypeId).Data <- value
                             else
@@ -536,7 +545,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                         <@
                             let entity = (% entityExpr : Entity)
                             let value = (%% argExpr : double)
-                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                            if entity.Entity.GetField(fieldTypeId).FieldType.RequiredConstructorParameter then
                                 // this is a mandatory constructor parameter
                                 entity.Entity.GetField(fieldTypeId).Data <- value
                             else
@@ -553,7 +562,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                         <@
                             let entity = (% entityExpr : Entity)
                             let value = (%% argExpr : DateTime)
-                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
+                            if entity.Entity.GetField(fieldTypeId).FieldType.RequiredConstructorParameter then
                                 // this is a mandatory constructor parameter
                                 entity.Entity.GetField(fieldTypeId).Data <- value
                             else
@@ -571,8 +580,8 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                             let entity = (% entityExpr : Entity)
                             let value = (%% argExpr : LocaleString)
 
-                            if entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue = null then
-                                // this is a mandatory constructor parameter
+                            if entity.Entity.GetField(fieldTypeId).FieldType.RequiredConstructorParameter then
+                                // this is a required constructor parameter
                                 entity.Entity.GetField(fieldTypeId).Data <- value |> toObjects
                             else
                                 // this is an optional constructor parameter
@@ -590,10 +599,13 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                             let field = entity.Entity.GetField(fieldTypeId)
                             let value = (%% argExpr : CVLNode)
 
-                            if field.FieldType.DefaultValue = null then
-                                // this is a mandatory constructor parameter
-                                entity.Entity.GetField(fieldTypeId).Data <- value.CvlValue.Key
-                                entity
+                            if field.FieldType.RequiredConstructorParameter then
+                                // this is a required constructor parameter
+                                if (value :> obj) <> null then
+                                    entity.Entity.GetField(fieldTypeId).Data <- value.CvlValue.Key
+                                    entity
+                                else
+                                    failwith (sprintf "Failed to create entity, %s.%s is required." entity.EntityType.Id fieldTypeId)
                             else
                                 // this is an optional constructor parameter
                                 if (value :> obj) = null then
@@ -610,7 +622,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                             let field = entity.Entity.GetField(fieldTypeId)
                             let values = (%% argExpr : CVLNode list)
 
-                            if field.FieldType.DefaultValue = null then
+                            if field.FieldType.RequiredConstructorParameter then
                                 // this is a mandatory constructor parameter
                                 entity.Entity.GetField(fieldTypeId).Data <-
                                     values
@@ -644,6 +656,31 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                             else
                                 // store file in entity cache
                                 entity.setFile fieldTypeId file
+                            entity
+                            @>
+                    | Xml ->
+                        <@
+                            let entity = (% entityExpr : Entity)
+                            let value = (%% argExpr : System.Xml.Linq.XDocument)
+                            if entity.Entity.GetField(fieldTypeId).FieldType.RequiredConstructorParameter then
+                                // this is a required constructor parameter
+                                if value <> null then
+                                    entity.Entity.GetField(fieldTypeId).Data <- value.ToString()
+                                else
+                                    failwith (sprintf "Failed to create entity, %s.%s is required." entity.EntityType.Id fieldTypeId)
+                            else
+                                // this is an optional constructor parameter
+                                if (value :> obj) = null then
+                                    // use the default value
+                                    // NOTE we cannot trust the default constructor to set a default value
+                                    // for XML because the Remoting API seems broken in this aspect. This
+                                    // means if you have a mandatory XML value, you will not be able to
+                                    // create entities with the default value.
+                                    // We fix this here by setting the default value explicitly.
+                                    entity.Entity.GetField(fieldTypeId).Data <- entity.Entity.GetField(fieldTypeId).FieldType.DefaultValue
+                                else
+                                    // overwrite default value with provided value
+                                    entity.Entity.GetField(fieldTypeId).Data <- value.ToString()
                             entity
                             @>
                     ) emptyConstructorExpr
@@ -1027,6 +1064,37 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | None -> entity.Entity.GetField(fieldTypeID).Data <- null                 
             @@>
             
+    let getXmlValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the value
+            let xmlString = (entity |> getFieldData fieldTypeID) :?> string
+            if System.String.IsNullOrEmpty(xmlString) then
+                None
+            else
+                // this will potentially crash if the XML data is bad
+                // better to let the caller know there is a problem than
+                // ignoring it and returning None
+                Some (System.Xml.Linq.XDocument.Parse(xmlString))
+            @@>
+
+    let setXmlValueExpression fieldTypeID =
+        fun (args : Expr list) ->
+        <@@
+            // get the entity
+            let entity = (%% args.[0] : Entity)
+            // get the value
+            match (%% args.[1] : System.Xml.Linq.XDocument option) with
+            // if some value set it
+            | Some value -> entity.Entity.GetField(fieldTypeID).Data <- value.ToString()
+            // if no value, but field is mandatory = fail
+            | None when entity.Entity.GetField(fieldTypeID).FieldType.Mandatory -> failwith  (sprintf "Cannot set %s.%s to None, because it is marked as Mandatory" entity.EntityType.Id fieldTypeID)
+            // if no value, set to null (this is also for primitive types)
+            | None -> entity.Entity.GetField(fieldTypeID).Data <- null   
+            @@>
+
 
     // try to create a property name that does not conflict with anything else on the entity
     // Example: A Product entity with the field ProductCreatedBy would conflict with the Entity.CreatedBy property
@@ -1070,7 +1138,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | Double -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getDoubleValueExpression fieldTypeID))
             | CVL id -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getCvlValueExpression id fieldTypeID))
             | MultiValueCVL id -> ProvidedProperty(propertyName, (toType dataType), [], GetterCode = (getMultiValueCvlExpression id fieldTypeID))
-            | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getStringValueExpression fieldTypeID) >> optionPropertyExpression))
+            | Xml -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getXmlValueExpression fieldTypeID))
             | File -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = ((getFileValueExpression fieldTypeID) >> uncheckedExpression))
             | Guid -> ProvidedProperty(propertyName, (toOptionType dataType), [], GetterCode = (getGuidValueExpression fieldTypeID))
         
@@ -1088,7 +1156,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 | Double -> setDoubleValueExpression fieldTypeID
                 | CVL id -> setCvlValueExpression fieldTypeID
                 | MultiValueCVL id -> setMultiValueCvlExpression fieldTypeID
-                | Xml -> setStringValueExpression fieldTypeID
+                | Xml -> setXmlValueExpression fieldTypeID
                 | File -> setFileValueExpression fieldTypeID
                 | Guid -> setGuidValueExpression fieldTypeID
 

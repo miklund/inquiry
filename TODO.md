@@ -39,6 +39,7 @@ The purpose of v0.3 is to query the inRiver API for several entities.
 * Query API
 * Opt-in logging for the code generation
 * Add XML comments for all the fields
+* Deal with relations between entities, handle links
 
 v0.2
 
@@ -51,10 +52,8 @@ pim.Product.GetByNumber("SKU123")
 |> ignore
 ```
 
-* Xml field should be represented by XDocument and not string, string is the DTO data type
 * Implement GET-functions
 
-* Deal with relations between entities, handle links
 * Implement FieldSets
 * Implement Categories
 * Implement Unique

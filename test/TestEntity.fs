@@ -91,16 +91,17 @@ let ``Name is DisplayDescription`` () =
 [<Fact>]
 let ``TestXML should be able to set XML value from constructor`` () =
     // arrange
-    let xml = "<root><name>Bertil</name></root>"
+    let xmlDoc = System.Xml.Linq.XDocument.Parse("<root><name>Bertil</name></root>")
     // act
-    let instance = pim.Test("XmlTest", xml = xml)
+    let instance = pim.Test("XmlTest", xml = xmlDoc)
     // assert
-    test <@ instance.Xml = Some xml @>
+    test <@ instance.Xml.Value.ToString() = xmlDoc.ToString() @>
 
 [<Fact>]
 let ``Cannot set TestXML to None because it is mandatory`` () =
     // arrange
-    let instance = pim.Test("XmlTest", xml = "<root><name>Bertil</name></root>")
+    let xmlDoc = System.Xml.Linq.XDocument.Parse("<root><name>Bertil</name></root>")
+    let instance = pim.Test("XmlTest", xml = xmlDoc)
     // act
     let code = fun () -> instance |> set (fun t -> t.Xml <- None) |> ignore
     // assert
@@ -109,11 +110,13 @@ let ``Cannot set TestXML to None because it is mandatory`` () =
 [<Fact>]
 let ``Can update TestXML with a new value`` () =
     // arrange
-    let instance = pim.Test("XmlTest", xml = "<root><name>Bertil</name></root>")
+    let xmlDoc1 = System.Xml.Linq.XDocument.Parse("<root><name>Bertil</name></root>")
+    let xmlDoc2 = System.Xml.Linq.XDocument.Parse("<root><name>Berit</name></root>")
+    let instance = pim.Test("XmlTest", xml = xmlDoc1)
     // act
-                   |> set (fun t -> t.Xml <- Some "<root><name>Berit</name></root>")
+                   |> set (fun t -> t.Xml <- Some xmlDoc2)
     // assert
-    test <@ instance.Xml = Some "<root><name>Berit</name></root>" @>
+    test <@ instance.Xml.Value.ToString() = xmlDoc2.ToString() @>
 
 [<Fact>]
 let ``A read-only field will be optional in the constructor`` () =
