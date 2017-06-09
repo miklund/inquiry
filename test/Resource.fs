@@ -150,3 +150,22 @@ let ``Can set the media type to sketch`` () =
 
 //    // assert
 //    test <@ null = inRiverService.getFile (resource1.Entity.GetField("ResourceFileId").Data :?> int) @>
+
+[<Fact>]
+let ``Can save a new resource and read back its file`` () =
+    // arrange
+    let data = [| for i in [65..74] -> byte(i) |]
+    let file = File.New ("first.dat", data)
+    // act
+    let resource1 =
+        match pim.Resource(file) |> pim.Resource.save with
+        | Ok resource -> resource
+        | Error e -> failwith e.Message
+    // assert
+    match pim.Resource.get (resource1.Id) with
+    | Some resource ->
+        match resource.FileData with
+        | Some (Persisted persistedFileData) -> test <@ persistedFileData = data @>
+        | _ -> failwith "Failed to store file data in PIM"
+    | None -> failwith "Saved resource was not found"
+

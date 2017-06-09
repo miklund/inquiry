@@ -214,3 +214,30 @@ let ``Can set activity responsible to pimuser1`` () =
                    |> set (fun a -> a.Responsible <- Some pim.Users.cert9)
     // arrange
     test <@ activity.Responsible = Some pim.Users.cert9 @>
+
+[<Fact>]
+let ``Can save a new activity and update it with new start date`` () =
+    // arrange
+    let today = System.DateTime.Today
+    // act
+    let activity =
+        pim.Activity()
+        |> set (fun activity -> activity.StartDate <- Some today)
+        |> pim.Activity.save
+    // assert
+    match activity with
+    | Ok activity -> test <@ activity.StartDate = Some today @>
+    | Error err -> failwith err.Message
+
+[<Fact>]
+let ``Can save a new activity and update it with new length`` () = 
+    // act
+    let activity =
+        pim.Activity()
+        |> set (fun activity -> activity.Length <- Some 123)
+        |> pim.Activity.save
+    // assert
+    match activity with
+    | Ok activity -> test <@ activity.Length = Some 123 @>
+    | Error err -> failwith err.Message
+

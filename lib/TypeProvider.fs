@@ -185,9 +185,25 @@ type Entity (entityType, entity : Objects.Entity)  =
     member this.clone () =
         let cloneEntity = Objects.Entity.CreateEntity(entity.EntityType)
         
+        // copy attributes
+        cloneEntity.ChangeSet <- this.Entity.ChangeSet
+        cloneEntity.Completeness <- this.Entity.Completeness
+        cloneEntity.CreatedBy <- this.Entity.CreatedBy
+        cloneEntity.DateCreated <- this.Entity.DateCreated
+        cloneEntity.DisplayName <- this.Entity.DisplayName
+        cloneEntity.DisplayDescription <- this.Entity.DisplayDescription
+        cloneEntity.FieldSetId <- this.Entity.FieldSetId
+        cloneEntity.Id <- this.Entity.Id
+        cloneEntity.LastModified <- this.Entity.LastModified
+        cloneEntity.LoadLevel <- this.Entity.LoadLevel
+        cloneEntity.Locked <- this.Entity.Locked
+        cloneEntity.MainPictureId <- this.Entity.MainPictureId
+        cloneEntity.ModifiedBy <- this.Entity.ModifiedBy
+        cloneEntity.Version <- this.Entity.Version
+
         // copy fields
         this.Entity.Fields
-        |> Seq.iter (fun field -> cloneEntity.GetField(field.FieldType.Id).Data <- (field.Clone() :?> Objects.Field).Data)
+        |> Seq.iteri (fun index field -> cloneEntity.Fields.[index] <- field.Clone() :?> Objects.Field)
     
         // copy links
         this.Entity.Links
@@ -748,6 +764,23 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                 | ex -> Error ex
             @@>
 
+    // get an entity by id
+    let getMethodExpression entityTypeID =
+        fun (args : Expr list) ->
+        <@@
+            let entityId = (%% args.[0] : int)
+            
+            match inRiverService.getEntity entityId with
+            // found an entity, but it has the wrong type
+            // we could just return None, but I think the consumer screwed up
+            // and would like to know about it.
+            | Some entity when entity.EntityType.Id <> entityTypeID ->
+                failwith (sprintf "Tried to get entity %d of entity type %s, but it was %s" entityId entityTypeID entity.EntityType.Id)
+            // found entity
+            | Some entity -> Some (Entity(entity))
+            // didn't find entity
+            | None -> None
+            @@>
 
     //
     // Property expressions
@@ -1183,6 +1216,13 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         saveMethod.IsStaticMethod <- true
         saveMethod.InvokeCode <- saveExpression
         typeDefinition.AddMember saveMethod
+
+        // get method
+        let getMethodReturnType = typedefof<Option<_>>.MakeGenericType([|typeDefinition :> Type|])
+        let getMethod = ProvidedMethod("get", [ProvidedParameter("id", typeof<int>)], getMethodReturnType)
+        getMethod.IsStaticMethod <- true
+        getMethod.InvokeCode <- getMethodExpression entityType.Id
+        typeDefinition.AddMember getMethod
 
         // add fields as properties
         typeDefinition.AddMembers (

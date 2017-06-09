@@ -32,6 +32,8 @@ type inRiver2 = inQuiry<"https://pim.test:8080", "pimuser1", "pimuser1">
 let product2 = inRiver2.Product("SKU123")
 ```
 
+* Implement rest of the CRUD operations supported by inRiver Remoting.
+
 v0.3
 
 The purpose of v0.3 is to query the inRiver API for several entities.
@@ -46,7 +48,7 @@ v0.2
 The purpose of v0.2 is to retrieve a single entity, change it and save it back to inRiver.
 
 ```fsharp
-pim.Product.GetByNumber("SKU123")
+pim.Product.GetByNumber "SKU123"
 |> set (fun p -> p.Number = Some "SKU 456")
 |> pim.Product.save 
 |> ignore
@@ -60,6 +62,13 @@ pim.Product.GetByNumber("SKU123")
 * Implement Hidden
 * Implement Exclude from Default View
 * Create fsi files to protect internal members of the library
+
+REFACTORING
+
+* Spike removing option from properties, making it messier than it has to
+* Rename File.New to something that is easier to read
+* Maybe the pim.Product.get should return Result<'a> instead of Option<'a>
+* File handling is way too much nesting of Some/File
 
 BUGS
 

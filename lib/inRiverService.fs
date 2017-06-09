@@ -61,6 +61,11 @@ module inRiverService =
                 |> Map.ofSeq
         )
 
+    // get entity
+    let getEntity id =
+        remoteManager.Force().dataService.GetEntity(id, inRiver.Remoting.Objects.LoadLevel.DataOnly)
+        |> Option.ofObj
+
     // return entity type
     let getEntityTypes () = 
         entityTypes.Force()

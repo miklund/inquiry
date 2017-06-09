@@ -139,4 +139,96 @@ let ``Can set SizeXML by constructor`` () =
     let item = pim.Item("ABC123", xmlDoc)
     // assert
     test <@ item.SizeXML.Value.ToString() = xmlDoc.ToString() @>
+
+[<Fact>]
+let ``Can get item 44 update fashion weight and save it back`` () =
+    let testData = System.Math.Round(System.Random(System.Guid.NewGuid().GetHashCode()).NextDouble(), 2)
+    // act
+    match pim.Item.get 44 with
+    | Some item -> item
+    | None -> failwith "Item 44 not found"
+    |> set (fun i -> i.FashionWeight <- Some testData)
+    |> pim.Item.save
+    |> ignore
+    // assert
+    match pim.Item.get 44 with
+    | Some item -> test <@ item.FashionWeight = Some testData @>
+    | None -> failwith "Item 44 not found"
     
+[<Fact>]
+let ``Can save a new item and update it with new item number`` () =
+    let itemNumber1 = "ABC" + System.DateTime.Now.Ticks.ToString()
+    let itemNumber2 = itemNumber1 + "_UPDATED"
+    // act
+    let item =
+        match pim.Item(itemNumber1) |> pim.Item.save with
+        | Ok i -> i
+        | Error e -> failwith e.Message
+        |> set (fun i -> i.Number <- Some itemNumber2)
+        |> pim.Item.save
+    // assert
+    match item with
+    | Ok item -> test <@ item.Number = Some itemNumber2 @>
+    | Error err -> failwith err.Message
+
+[<Fact>]
+let ``Can save a new item and update it with new industry`` () =
+    // act
+    let item =
+        pim.Item("ABC" + System.DateTime.Now.Ticks.ToString())
+        |> set (fun item -> item.Industry <- Some pim.Industry.electronics)
+        |> pim.Item.save
+    // assert
+    match item with
+    | Ok item -> test <@ item.Industry =  Some pim.Industry.electronics @>
+    | Error err -> failwith err.Message
+
+[<Fact>]
+let ``Can save a new item and update it with new season`` () =
+    // act
+    let item =
+        pim.Item("ABC" + System.DateTime.Now.Ticks.ToString())
+        |> set (fun item -> item.FashionSeason <- [ pim.ItemSeason.FW2015; pim.ItemSeason.FW2016 ])
+        |> pim.Item.save
+    // assert
+    match item with
+    | Ok item -> test <@ item.FashionSeason = [ pim.ItemSeason.FW2015; pim.ItemSeason.FW2016 ] @>
+    | Error err -> failwith err.Message
+
+[<Fact>]
+let ``Can save a new item and update it with new FashionWeight`` () =
+    // act
+    let item =
+        pim.Item("ABC" + System.DateTime.Now.Ticks.ToString())
+        |> set (fun item -> item.FashionWeight <- Some 1.23)
+        |> pim.Item.save
+    // assert
+    match item with
+    | Ok item -> test <@ item.FashionWeight = Some 1.23 @>
+    | Error err -> failwith err.Message
+
+[<Fact>]
+let ``Can save a new item and update it with new market`` () =
+    // act
+    let item =
+        pim.Item("ABC" + System.DateTime.Now.Ticks.ToString())
+        |> set (fun item -> item.DIYMarket <- [ pim.Market.fr; pim.Market.us ])
+        |> pim.Item.save
+    // assert
+    match item with
+    | Ok item -> test <@ item.DIYMarket = [ pim.Market.fr; pim.Market.us ] @>
+    | Error err -> failwith err.Message
+
+[<Fact>]
+let ``Can save a new item with new SizeXML`` () =
+    // arrange
+    let xml = "<sizes><medium>38</medium></sizes>"
+    // act
+    let item =
+        pim.Item("ABC" + System.DateTime.Now.Ticks.ToString(), sizeXML = System.Xml.Linq.XDocument.Parse(xml))
+        |> pim.Item.save
+    // assert
+    match item with
+    | Ok item -> test <@ item.SizeXML.Value.Descendants(System.Xml.Linq.XName.Get "medium") |> Seq.head |> (fun el -> el.Value) = "38" @>
+    | Error err -> failwith err.Message
+

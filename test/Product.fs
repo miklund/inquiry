@@ -242,3 +242,41 @@ let ``Can set the product translation status complete to Swedish and Dannish`` (
     let product = pim.Product("ABC123", TranslationStatus = [pim.ProductTranslationComplete.Swedish; pim.ProductTranslationComplete.Dannish])
     // assert
     test <@ product.TranslationStatus = [pim.ProductTranslationComplete.Swedish; pim.ProductTranslationComplete.Dannish] @>
+
+[<Fact>]
+let ``Trying to get a product that doesn't exist will return None`` () =
+    // act
+    let product = pim.Product.get -1
+    // assert
+    test <@ product = None @>
+
+[<Fact>]
+let ``Trying to get a product that exists`` () =
+    // act
+    let product = (pim.Product.get 43).Value
+    // assert
+    test <@ product.Number = Some "A001" @>
+
+[<Fact>]
+let ``Can save a new product and update it with new name`` () =
+    // act
+    let product =
+        pim.Product("ABC" + System.DateTime.Now.Ticks.ToString())
+        |> set (fun product -> product.Name <- [("en", "Test Product"); ("sv", "Testprodukt")] |> Map.ofSeq)
+        |> pim.Product.save
+    // assert
+    match product with
+    | Ok product -> test <@ product.Name |> Map.find "sv" = "Testprodukt" @>
+    | Error err -> failwith err.Message
+
+[<Fact>]
+let ``Can save a new product and update it with new approved value`` () =
+    // act
+    let product =
+        pim.Product("ABC" + System.DateTime.Now.Ticks.ToString())
+        |> set (fun product -> product.Approved <- Some true)
+        |> pim.Product.save
+    // assert
+    match product with
+    | Ok product -> test <@ product.Approved = Some true @>
+    | Error err -> failwith err.Message
