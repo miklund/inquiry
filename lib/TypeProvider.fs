@@ -49,9 +49,9 @@ let toObjects (input : LocaleString) =
 /// expressions, causing some weird code around the handling of this type.
 type File = 
     /// A new file is a fileName and file data
-    | New of string * byte array
+    | NewFile of string * byte array
     /// An already persisted file is just data
-    | Persisted of byte array
+    | PersistedFile of byte array
 
 /// The File cache is a temporary storage for files with the entity. When we
 /// create an entity with File as constructor argument we want to delay the
@@ -157,7 +157,7 @@ type Entity (entityType, entity : Objects.Entity)  =
         |> Seq.choose 
             (fun (fieldTypeId, file) -> 
                 match file with 
-                | New (fileName, data) -> Some (fieldTypeId, fileName, data) 
+                | NewFile (fileName, data) -> Some (fieldTypeId, fileName, data) 
                 | _ -> None
             )
       
@@ -167,9 +167,9 @@ type Entity (entityType, entity : Objects.Entity)  =
         match files |> Map.tryFind fileTypeId with
         | None -> None
         // it is a new file
-        | Some (New (fileName, data)) -> Some data
+        | Some (NewFile (fileName, data)) -> Some data
         // it is an old file
-        | Some (Persisted data) -> Some data
+        | Some (PersistedFile data) -> Some data
 
     /// Will mutate the file Map and update it with a new value. For internal
     /// use this is fine, but not for updating the file properties externally.
@@ -179,7 +179,7 @@ type Entity (entityType, entity : Objects.Entity)  =
     /// A wrapper to this.setFile because code quotations can't handle
     /// discriminated unions.
     member this.setPersistedFileData (fieldTypeId : string) (data : byte array) =
-        files <- files.Add(fieldTypeId, Persisted data)
+        files <- files.Add(fieldTypeId, PersistedFile data)
         files
 
     member this.clone () =
@@ -1109,7 +1109,7 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
                         // store the value in internal cache and return
                         ignore <| entity.setPersistedFileData fieldTypeID data
                         // return data
-                        Some (Persisted data)
+                        Some (PersistedFile data)
             @>
 
     let setFileValueExpression fieldTypeID =

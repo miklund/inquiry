@@ -69,7 +69,6 @@ pim.Product.getByNumber "SKU123"
 REFACTORING
 
 * Spike removing option from properties, making it messier than it has to
-* Rename File.New to something that is easier to read
 * File handling is way too much nesting of Some/File
 
 BUGS

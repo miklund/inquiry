@@ -14,17 +14,17 @@ type pim = inRiverProvider<"http://localhost:8080", "pimuser1", "pimuser1">
 let ``Creating a resource should make the data available through its property`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = New ("test.dat", data)
+    let file = NewFile ("test.dat", data)
     // act
     let instance = pim.Resource(fileData = file)
     // assert
-    test <@ instance.FileData =  Some (New ("test.dat", data)) @>
+    test <@ instance.FileData =  Some (NewFile ("test.dat", data)) @>
 
 [<Fact>]
 let ``Creating a resource will not save the file`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = New ("test.dat", data)
+    let file = NewFile ("test.dat", data)
     // act
     let instance = pim.Resource(fileData = file)
     // assert
@@ -34,7 +34,7 @@ let ``Creating a resource will not save the file`` () =
 let ``Saving a Resource will also save the file data to utility service`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = New ("test.dat", data)
+    let file = NewFile ("test.dat", data)
     let instance = pim.Resource(fileData = file)
     // act
     ignore <| pim.Resource.save instance
@@ -46,7 +46,7 @@ let ``Saving a Resource will also save the file data to utility service`` () =
 let ``Can set resource name`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = New ("test.dat", data)
+    let file = NewFile ("test.dat", data)
     // act
     let resource = pim.Resource(file, Name = Some "Test data")
     // assert
@@ -56,7 +56,7 @@ let ``Can set resource name`` () =
 let ``Resource filename is set from constructor`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = New ("test.dat", data)
+    let file = NewFile ("test.dat", data)
     // act
     let resource = pim.Resource(file, Filename = Some "test.dat")
     // assert
@@ -66,7 +66,7 @@ let ``Resource filename is set from constructor`` () =
 let ``Can set the resource mime type`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = New ("test.dat", data)
+    let file = NewFile ("test.dat", data)
     // act
     let resource = pim.Resource(file)
                    |> set (fun r -> r.MimeType <- Some "base64/text")
@@ -77,7 +77,7 @@ let ``Can set the resource mime type`` () =
 let ``Can set the resource description`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = New ("test.dat", data)
+    let file = NewFile ("test.dat", data)
     // act
     let resource = pim.Resource(file)
                    |> set (fun r -> r.Description <- Some "This is a test file!")
@@ -88,7 +88,7 @@ let ``Can set the resource description`` () =
 let ``Can set the resource image map`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = New ("test.dat", data)
+    let file = NewFile ("test.dat", data)
     // act
     let resource = pim.Resource(file, ImageMap = Some "test.dat.map")
     // assert
@@ -98,7 +98,7 @@ let ``Can set the resource image map`` () =
 let ``Can set the media type to sketch`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = New ("first.dat", data)
+    let file = NewFile ("first.dat", data)
     // act
     let resource = pim.Resource(file, MediaType = Some pim.MediaType.sketch)
     // assert
@@ -155,7 +155,7 @@ let ``Can set the media type to sketch`` () =
 let ``Can save a new resource and read back its file`` () =
     // arrange
     let data = [| for i in [65..74] -> byte(i) |]
-    let file = File.New ("first.dat", data)
+    let file = NewFile ("first.dat", data)
     // act
     let resource1 =
         match pim.Resource(file) |> pim.Resource.save with
@@ -165,7 +165,7 @@ let ``Can save a new resource and read back its file`` () =
     match pim.Resource.get (resource1.Id) with
     | Ok resource ->
         match resource.FileData with
-        | Some (Persisted persistedFileData) -> test <@ persistedFileData = data @>
+        | Some (PersistedFile persistedFileData) -> test <@ persistedFileData = data @>
         | _ -> failwith "Failed to store file data in PIM"
     | Error _ -> failwith "Saved resource was not found"
 
