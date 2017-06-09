@@ -169,3 +169,18 @@ let ``Can save a new resource and read back its file`` () =
         | _ -> failwith "Failed to store file data in PIM"
     | None -> failwith "Saved resource was not found"
 
+[<Fact>]
+let ``Can get resource by filename`` () =
+    // act
+    match pim.Resource.getByFilename "A001001_1_2.jpg" with
+    // assert
+    | Some resource -> test <@ resource.Id = 178 @>
+    | None -> failwith "Expected resource 178 was not found by filename A001001_1_2.jpg"
+
+[<Fact>]
+let ``Can get resource by file id`` () =
+    // act
+    match pim.Resource.getByFileId 1 with
+    // assert
+    | Some resource -> test <@ resource.Id = 178 @>
+    | None -> failwith "Expected resource 178 was not found by file id 1"

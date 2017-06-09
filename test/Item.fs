@@ -232,3 +232,10 @@ let ``Can save a new item with new SizeXML`` () =
     | Ok item -> test <@ item.SizeXML.Value.Descendants(System.Xml.Linq.XName.Get "medium") |> Seq.head |> (fun el -> el.Value) = "38" @>
     | Error err -> failwith err.Message
 
+[<Fact>]
+let ``Can get item by number`` () =
+    // act
+    match pim.Item.getByNumber "A001001" with
+    // assert
+    | Some item -> test <@ item.Id = 44 @>
+    | None -> failwith "Expected item 44 was not found by number A001001"

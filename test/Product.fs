@@ -280,3 +280,12 @@ let ``Can save a new product and update it with new approved value`` () =
     match product with
     | Ok product -> test <@ product.Approved = Some true @>
     | Error err -> failwith err.Message
+
+
+[<Fact>]
+let ``Can get product by number`` () =
+    // act
+    match pim.Product.getByNumber "A001" with
+    // assert
+    | Some product -> test <@ product.Id = 43 @>
+    | None -> failwith "Expected product 43 was not found by number A001"

@@ -782,6 +782,32 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | None -> None
             @@>
 
+    let getUniqueMethodExpression (fieldType : Objects.FieldType) =
+        let fieldTypeID = fieldType.Id
+        let _getUniqueMethodExpression toStringConverterExpression =
+            fun (args : Expr list) ->
+            <@@
+                let value = (% toStringConverterExpression(args.[0]))
+                match inRiverService.getEntityByUniqueValue fieldTypeID value with
+                // found entity, should only be able to find entities of the correct entity type
+                | Some entity -> Some (Entity(entity))
+                // didn't find entity
+                | None -> None
+                @@>
+            
+        // Some code is really fun to write
+        match fieldType |> DataType.parse with
+        | String -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : string) @>)
+        | Boolean -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : bool).ToString() @>)
+        | CVL id -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : CVLNode).CvlValue.Key @>)
+        | MultiValueCVL id -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : CVLNode list) |> List.map (fun cvlNode -> cvlNode.CvlValue.Key) |> concat ";" @>)
+        | DateTime -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : DateTime).ToString() @>)
+        | Double -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : double).ToString() @>)
+        | File -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : int).ToString() @>)
+        | Integer -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : int).ToString() @>)
+        | LocaleString -> _getUniqueMethodExpression (fun expr -> <@ ((%% expr : LocaleString) |> toObjects).ToString() @>)
+        | Xml -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : System.Xml.Linq.XDocument).ToString() @>)
+        | Guid -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : Guid).ToString() @>)
     //
     // Property expressions
     //
@@ -1223,6 +1249,15 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         getMethod.IsStaticMethod <- true
         getMethod.InvokeCode <- getMethodExpression entityType.Id
         typeDefinition.AddMember getMethod
+
+        // get unique methods
+        let getUniqueMethodReturnType = typedefof<Option<_>>.MakeGenericType([|typeDefinition :> Type|])
+        entityType.FieldTypes 
+        |> Seq.toList
+        |> List.filter (fun ft -> ft.Unique)
+        // OH MY GOD! Please refactor this mess
+        |> List.map (fun ft -> ProvidedMethod("getBy" + (fieldNamingConvention entityType.Id ft.Id), [ProvidedParameter((fieldNamingConvention entityType.Id ft.Id) |> toCamelCase, match DataType.parse ft with | File -> typeof<int> | dt -> dt |> toType)], getUniqueMethodReturnType, IsStaticMethod = true, InvokeCode = getUniqueMethodExpression ft))
+        |> List.iter typeDefinition.AddMember
 
         // add fields as properties
         typeDefinition.AddMembers (

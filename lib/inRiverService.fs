@@ -66,6 +66,10 @@ module inRiverService =
         remoteManager.Force().dataService.GetEntity(id, inRiver.Remoting.Objects.LoadLevel.DataOnly)
         |> Option.ofObj
 
+    let getEntityByUniqueValue fieldTypeID value =
+        remoteManager.Force().dataService.GetEntityByUniqueValue(fieldTypeID, value, inRiver.Remoting.Objects.LoadLevel.DataOnly)
+        |> Option.ofObj
+
     // return entity type
     let getEntityTypes () = 
         entityTypes.Force()

@@ -42,26 +42,24 @@ The purpose of v0.3 is to query the inRiver API for several entities.
 * Opt-in logging for the code generation
 * Add XML comments for all the fields
 * Deal with relations between entities, handle links
-
-v0.2
-
-The purpose of v0.2 is to retrieve a single entity, change it and save it back to inRiver.
-
-```fsharp
-pim.Product.GetByNumber "SKU123"
-|> set (fun p -> p.Number = Some "SKU 456")
-|> pim.Product.save 
-|> ignore
-```
-
-* Implement GET-functions
-
 * Implement FieldSets
 * Implement Categories
 * Implement Unique
 * Implement Hidden
 * Implement Exclude from Default View
 * Create fsi files to protect internal members of the library
+  - Not so sure this is possible as the generated code need to be accessing these internal members publicly
+
+v0.2
+
+The purpose of v0.2 is to retrieve a single entity, change it and save it back to inRiver.
+
+```fsharp
+pim.Product.getByNumber "SKU123"
+|> set (fun p -> p.Number <- Some "SKU 456")
+|> pim.Product.save 
+|> ignore
+```
 
 REFACTORING
 
@@ -85,7 +83,7 @@ DOCUMENTATION
   - How to read and write properties
   - How to write an import extension importing data from XML to inRiver
 
-  META
+ META
 
 * Create a logo for the nuget package
 * Add a reference to System.Configuration in nuget package

@@ -32,4 +32,11 @@ let ``Can set section Name`` () =
     let section = pim.Section(Name = Some "Section 13")
     // assert
     test <@ section.Name = Some "Section 13" @>
-    
+   
+[<Fact>]
+let ``Can get section by id`` () =
+    // act
+    match pim.Section.getById (System.Guid.Parse("30198aaf-8eb8-4002-95d9-e62e03acc9e2")) with
+    // assert
+    | Some section -> test <@ section.Name = Some "My new section" @>
+    | None -> failwith "Expected section \"My new section\" was not found by Id 30198aaf-8eb8-4002-95d9-e62e03acc9e2"
