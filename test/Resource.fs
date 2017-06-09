@@ -163,24 +163,24 @@ let ``Can save a new resource and read back its file`` () =
         | Error e -> failwith e.Message
     // assert
     match pim.Resource.get (resource1.Id) with
-    | Some resource ->
+    | Ok resource ->
         match resource.FileData with
         | Some (Persisted persistedFileData) -> test <@ persistedFileData = data @>
         | _ -> failwith "Failed to store file data in PIM"
-    | None -> failwith "Saved resource was not found"
+    | Error _ -> failwith "Saved resource was not found"
 
 [<Fact>]
 let ``Can get resource by filename`` () =
     // act
     match pim.Resource.getByFilename "A001001_1_2.jpg" with
     // assert
-    | Some resource -> test <@ resource.Id = 178 @>
-    | None -> failwith "Expected resource 178 was not found by filename A001001_1_2.jpg"
+    | Ok resource -> test <@ resource.Id = 178 @>
+    | Error e -> failwith e.Message
 
 [<Fact>]
 let ``Can get resource by file id`` () =
     // act
     match pim.Resource.getByFileId 1 with
     // assert
-    | Some resource -> test <@ resource.Id = 178 @>
-    | None -> failwith "Expected resource 178 was not found by file id 1"
+    | Ok resource -> test <@ resource.Id = 178 @>
+    | Error e -> failwith e.Message

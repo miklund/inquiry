@@ -246,14 +246,15 @@ let ``Can set the product translation status complete to Swedish and Dannish`` (
 [<Fact>]
 let ``Trying to get a product that doesn't exist will return None`` () =
     // act
-    let product = pim.Product.get -1
+    match pim.Product.get -1 with
     // assert
-    test <@ product = None @>
+    | Ok _ -> failwith "Product should not exist"
+    | Error e -> test <@ e.Message = "Tried to get entity -1 of entity type Product, but it was not found" @>
 
 [<Fact>]
 let ``Trying to get a product that exists`` () =
     // act
-    let product = (pim.Product.get 43).Value
+    let product = match pim.Product.get 43 with | Ok value -> value | Error e -> failwith e.Message
     // assert
     test <@ product.Number = Some "A001" @>
 
@@ -287,5 +288,5 @@ let ``Can get product by number`` () =
     // act
     match pim.Product.getByNumber "A001" with
     // assert
-    | Some product -> test <@ product.Id = 43 @>
-    | None -> failwith "Expected product 43 was not found by number A001"
+    | Ok product -> test <@ product.Id = 43 @>
+    | Error e -> failwith e.Message

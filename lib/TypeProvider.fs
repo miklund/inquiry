@@ -770,29 +770,37 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         <@@
             let entityId = (%% args.[0] : int)
             
-            match inRiverService.getEntity entityId with
-            // found an entity, but it has the wrong type
-            // we could just return None, but I think the consumer screwed up
-            // and would like to know about it.
-            | Some entity when entity.EntityType.Id <> entityTypeID ->
-                failwith (sprintf "Tried to get entity %d of entity type %s, but it was %s" entityId entityTypeID entity.EntityType.Id)
-            // found entity
-            | Some entity -> Some (Entity(entity))
-            // didn't find entity
-            | None -> None
+            try
+                match inRiverService.getEntity entityId with
+                // found an entity, but it has the wrong type
+                // we could just return None, but I think the consumer screwed up
+                // and would like to know about it.
+                | Some entity when entity.EntityType.Id <> entityTypeID ->
+                    Error (System.Exception(sprintf "Tried to get entity %d of entity type %s, but it was %s" entityId entityTypeID entity.EntityType.Id))
+                // found entity
+                | Some entity -> Ok (Entity(entity))
+                // didn't find entity
+                | None -> Error (System.Exception(sprintf "Tried to get entity %d of entity type %s, but it was not found" entityId entityTypeID))
+            with
+                | ex -> Error ex
             @@>
 
     let getUniqueMethodExpression (fieldType : Objects.FieldType) =
         let fieldTypeID = fieldType.Id
+        let entityTypeID = fieldType.EntityTypeId
         let _getUniqueMethodExpression toStringConverterExpression =
             fun (args : Expr list) ->
             <@@
                 let value = (% toStringConverterExpression(args.[0]))
-                match inRiverService.getEntityByUniqueValue fieldTypeID value with
-                // found entity, should only be able to find entities of the correct entity type
-                | Some entity -> Some (Entity(entity))
-                // didn't find entity
-                | None -> None
+
+                try
+                    match inRiverService.getEntityByUniqueValue fieldTypeID value with
+                    // found entity, should only be able to find entities of the correct entity type
+                    | Some entity -> Ok (Entity(entity))
+                    // didn't find entity
+                    | None -> Error (System.Exception(sprintf "Tried to get %s by %s = %s, but it was not found" entityTypeID fieldTypeID value))
+                with
+                    | ex -> Error ex
                 @@>
             
         // Some code is really fun to write
@@ -1244,14 +1252,14 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         typeDefinition.AddMember saveMethod
 
         // get method
-        let getMethodReturnType = typedefof<Option<_>>.MakeGenericType([|typeDefinition :> Type|])
+        let getMethodReturnType = typedefof<Result<_,_>>.MakeGenericType([|typeDefinition :> Type; typeof<Exception>|])
         let getMethod = ProvidedMethod("get", [ProvidedParameter("id", typeof<int>)], getMethodReturnType)
         getMethod.IsStaticMethod <- true
         getMethod.InvokeCode <- getMethodExpression entityType.Id
         typeDefinition.AddMember getMethod
 
         // get unique methods
-        let getUniqueMethodReturnType = typedefof<Option<_>>.MakeGenericType([|typeDefinition :> Type|])
+        let getUniqueMethodReturnType = typedefof<Result<_,_>>.MakeGenericType([|typeDefinition :> Type; typeof<Exception>|])
         entityType.FieldTypes 
         |> Seq.toList
         |> List.filter (fun ft -> ft.Unique)

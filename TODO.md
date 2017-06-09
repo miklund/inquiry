@@ -50,6 +50,11 @@ The purpose of v0.3 is to query the inRiver API for several entities.
 * Create fsi files to protect internal members of the library
   - Not so sure this is possible as the generated code need to be accessing these internal members publicly
 
+* Write example on
+  - How to work with the XML field, query and update it
+  - How to filter out specific fieldsets
+  - How to filter out categories
+
 v0.2
 
 The purpose of v0.2 is to retrieve a single entity, change it and save it back to inRiver.
@@ -65,7 +70,6 @@ REFACTORING
 
 * Spike removing option from properties, making it messier than it has to
 * Rename File.New to something that is easier to read
-* Maybe the pim.Product.get should return Result<'a> instead of Option<'a>
 * File handling is way too much nesting of Some/File
 
 BUGS
@@ -76,10 +80,6 @@ BUGS
 DOCUMENTATION
 
 * Documentation of configuration switches
-* Write example on
-  - How to work with the XML field, query and update it
-  - How to filter out specific fieldsets
-  - How to filter out categories
   - How to read and write properties
   - How to write an import extension importing data from XML to inRiver
 

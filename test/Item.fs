@@ -145,15 +145,15 @@ let ``Can get item 44 update fashion weight and save it back`` () =
     let testData = System.Math.Round(System.Random(System.Guid.NewGuid().GetHashCode()).NextDouble(), 2)
     // act
     match pim.Item.get 44 with
-    | Some item -> item
-    | None -> failwith "Item 44 not found"
+    | Ok item -> item
+    | Error e -> failwith e.Message
     |> set (fun i -> i.FashionWeight <- Some testData)
     |> pim.Item.save
     |> ignore
     // assert
     match pim.Item.get 44 with
-    | Some item -> test <@ item.FashionWeight = Some testData @>
-    | None -> failwith "Item 44 not found"
+    | Ok item -> test <@ item.FashionWeight = Some testData @>
+    | Error e -> failwith e.Message
     
 [<Fact>]
 let ``Can save a new item and update it with new item number`` () =
@@ -237,5 +237,5 @@ let ``Can get item by number`` () =
     // act
     match pim.Item.getByNumber "A001001" with
     // assert
-    | Some item -> test <@ item.Id = 44 @>
-    | None -> failwith "Expected item 44 was not found by number A001001"
+    | Ok item -> test <@ item.Id = 44 @>
+    | Error e -> failwith e.Message
