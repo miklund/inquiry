@@ -43,3 +43,42 @@ let ``Brand should have property bosch`` () =
     let brand = pim.Brand.bosch
     // assert
     test <@ brand.value = "Bosch" @>
+
+//
+// Testing the tryParse function on CVL
+//
+
+[<Fact>]
+let ``Brand should parse schreiber to Brand.schreiber`` () =
+    // act
+    let brand = pim.Brand.tryParse "schreiber"
+    // assert
+    test <@ brand = Some pim.Brand.schreiber @>
+
+[<Fact>]
+let ``Brand should parse blackdecker to Brand.blackdecker`` () =
+    // act
+    let brand = pim.Brand.tryParse "blackdecker"
+    // assert
+    test <@ brand = Some pim.Brand.blackdecker @>
+
+[<Fact>]
+let ``Brand should parse makita to Brand.makita`` () =
+    // act
+    let brand = pim.Brand.tryParse "makita"
+    // assert
+    test <@ brand = Some pim.Brand.makita @>
+
+[<Fact>]
+let ``Brand should parse dremel to Brand.dremel`` () =
+    // act
+    let brand = pim.Brand.tryParse "dremel"
+    // assert
+    test <@ brand = Some pim.Brand.dremel @>
+
+[<Fact>]
+let ``Brand should parse bosch to Brand.bosch`` () =
+    // act
+    let brand = pim.Brand.tryParse "bosch"
+    // assert
+    test <@ brand = Some pim.Brand.bosch @>

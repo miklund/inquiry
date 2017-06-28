@@ -1331,6 +1331,20 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
                 @@>
         | _ -> failwith "Only String and LocalString are supported data types for CVLs"
 
+
+    /// parse a string into a CVL value
+    let tryParseCVLValueMethodExpression cvlId =
+        fun (args : Expr list) ->
+        <@@
+            let cvlValueKey = (%% args.[0] : string)
+            // get the cvl value and type
+            match inRiverService.getCvlValueByKey cvlId cvlValueKey, inRiverService.getCvlTypeById cvlId with
+            // found both cvlType and cvlValue -> return the correct value
+            | Some cvlValue, Some cvlType -> Some (CVLNode(cvlType, cvlValue))
+            // otherwise None
+            | _, _ -> None
+            @@>
+
     let cvlValueToProperty typeDefinition (cvlValue : Objects.CVLValue) =
         let prop = ProvidedProperty(cvlValue.Key, typeDefinition, [], GetterCode = (cvlValueExpression cvlType.Id cvlValue.Id))
         prop.IsStatic <- true
@@ -1359,6 +1373,11 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
         let dataType = match cvlType.DataType with | "String" -> String | "LocaleString" -> LocaleString | _ -> failwith "CVL can only have String or LocaleString as datatype"
         let valueProperty = ProvidedProperty("value", (cvlType.DataType |> toType), [], GetterCode = (cvlValuePropertyExpression dataType))
         typeDefinition.AddMembers [valueProperty]
+
+        // create the static parse function
+        let tryParseMethodReturnType = typedefof<Option<_>>.MakeGenericType([|typeDefinition :> Type|])
+        let tryParseMethod = ProvidedMethod("tryParse", [ProvidedParameter("value", typeof<string>)], tryParseMethodReturnType, InvokeCode = (tryParseCVLValueMethodExpression cvlType.Id), IsStaticMethod = true)
+        typeDefinition.AddMembers [tryParseMethod]
 
         typeDefinition
 
