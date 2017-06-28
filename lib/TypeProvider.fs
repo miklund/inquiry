@@ -822,6 +822,8 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
         | LocaleString -> _getUniqueMethodExpression (fun expr -> <@ ((%% expr : LocaleString) |> toObjects).ToString() @>)
         | Xml -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : System.Xml.Linq.XDocument).ToString() @>)
         | Guid -> _getUniqueMethodExpression (fun expr -> <@ (%% expr : Guid).ToString() @>)
+
+
     //
     // Property expressions
     //
@@ -928,7 +930,6 @@ type EntityTypeFactory (cvlTypes : ProvidedTypeDefinition list, entityType : Obj
             | None -> entity.Entity.GetField(fieldTypeID).Data <- null 
             @@>
 
-    // Expr list -> Expr<DateTime option>
     let getDateTimeValueExpression fieldTypeID =
         fun (args : Expr list) ->
         <@@

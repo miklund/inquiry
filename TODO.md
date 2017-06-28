@@ -33,6 +33,7 @@ let product2 = inRiver2.Product("SKU123")
 ```
 
 * Implement rest of the CRUD operations supported by inRiver Remoting.
+* Make it possible to add a CVL option with something like `pim.MainCategory.add ("furniture", "Furniture")`
 
 v0.3
 
@@ -50,40 +51,16 @@ The purpose of v0.3 is to query the inRiver API for several entities.
 * Create fsi files to protect internal members of the library
   - Not so sure this is possible as the generated code need to be accessing these internal members publicly
 
+* Also check if the connection settings from <inRiver.Integration.Properties.Settings> are available
+* Deal with MainPictureId
+
 * Write example on
   - How to work with the XML field, query and update it
   - How to filter out specific fieldsets
   - How to filter out categories
 
-v0.2
-
-The purpose of v0.2 is to retrieve a single entity, change it and save it back to inRiver.
-
-```fsharp
-pim.Product.getByNumber "SKU123"
-|> set (fun p -> p.Number <- Some "SKU 456")
-|> pim.Product.save 
-|> ignore
-```
-
-REFACTORING
-
-* Spike removing option from properties, making it messier than it has to
-* File handling is way too much nesting of Some/File
-
 BUGS
-
-* BUG: CVL type Users is not generating all the CVL values
 * BUG: Can't handle a CVL with the same name as Entity
 
-DOCUMENTATION
-
-* Documentation of configuration switches
-  - How to read and write properties
-  - How to write an import extension importing data from XML to inRiver
-
- META
-
+META
 * Create a logo for the nuget package
-* Add a reference to System.Configuration in nuget package
-* Create a release, review all the documentation from previous release
