@@ -83,6 +83,7 @@
     <Compile Include="Item.fs" />
     <Compile Include="Milestone.fs" />
     <Compile Include="Product.fs" />
+    <Compile Include="ReadAndWriteBackDataTypes.fs" />
     <Compile Include="Resource.fs" />
     <Compile Include="Section.fs" />
     <Compile Include="Specification.fs" />

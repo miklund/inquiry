@@ -361,7 +361,13 @@ type Objects.FieldType with
         (this.Mandatory, this.DefaultValue = null) = (true, true)
     
     member this.OptionalConstructorParameter = not this.RequiredConstructorParameter
-        
+     
+// the equivilalent of Option.get for Result
+type Result<'T,'TError> with
+    static member get (result : Result<'T, 'TError>) : 'T =
+        match result with
+        | Ok value -> value
+        | Error e -> failwith (sprintf "%A" e)
 
 //
 // TYPE FACTORIES
