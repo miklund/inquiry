@@ -89,6 +89,7 @@
     <Compile Include="Specification.fs" />
     <Compile Include="Task.fs" />
     <Compile Include="TestEntity.fs" />
+    <Compile Include="Users.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
     <None Include="README.md" />

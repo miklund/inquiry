@@ -54,10 +54,11 @@ module inRiverService =
                 |> Map.ofSeq
         )
 
+    // map of cvlId * cvlValues
     let private cvlValues =
         lazy (
             remoteManager.Force().modelService.GetAllCVLValues()
-                |> Seq.map (fun cvlValue -> cvlValue.Id, cvlValue)
+                |> Seq.groupBy (fun cvlValue -> cvlValue.CVLId)
                 |> Map.ofSeq
         )
 
@@ -94,20 +95,13 @@ module inRiverService =
     
     // get cvl values
     let getCvlValues cvlId =
-        cvlValues.Force()
-        |> Map.toSeq
-        |> Seq.map snd
-        |> Seq.filter (fun cvlValue -> cvlValue.CVLId = cvlId)
-
-    let getCvlValueById valueId =
-        cvlValues.Force()
-        |> Map.tryFind valueId
+        match cvlValues.Force() |> Map.tryFind cvlId with
+        | Some cvlValues -> cvlValues
+        | None -> Seq.empty
     
     let getCvlValueByKey cvlId key =
-        cvlValues.Force()
-        |> Map.toSeq
-        |> Seq.map snd
-        |> Seq.tryFind (fun cvlValue -> cvlValue.CVLId = cvlId && cvlValue.Key = key)
+        getCvlValues cvlId
+        |> Seq.tryFind (fun cvlValue -> cvlValue.Key = key)
         
     // get file
     let getFile fileId =

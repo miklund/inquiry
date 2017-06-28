@@ -1297,7 +1297,7 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
     
     // this is a property expression, when calling a static property FashionMaterial.cotton there
     // should be a new instance of CVLNode created with that cvl value
-    let cvlValueExpression cvlId cvlValueId =
+    let cvlValueExpression cvlId cvlValueKey =
         fun args ->
         <@@
             // get the type
@@ -1308,9 +1308,9 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
 
             // get the value
             let cvlValue = 
-                match inRiverService.getCvlValueById(cvlValueId) with
+                match inRiverService.getCvlValueByKey cvlId cvlValueKey with
                 | Some cvlValue -> cvlValue
-                | None -> failwith (sprintf "CVL value with ID %d was not found in inRiver" cvlValueId)
+                | None -> failwith (sprintf "CVL value with ID %s was not found in inRiver" cvlValueKey)
                 
             CVLNode(cvlType, cvlValue)
             @@>
@@ -1346,7 +1346,7 @@ type CvlTypeFactory(cvlType : Objects.CVL) =
             @@>
 
     let cvlValueToProperty typeDefinition (cvlValue : Objects.CVLValue) =
-        let prop = ProvidedProperty(cvlValue.Key, typeDefinition, [], GetterCode = (cvlValueExpression cvlType.Id cvlValue.Id))
+        let prop = ProvidedProperty(cvlValue.Key, typeDefinition, [], GetterCode = (cvlValueExpression cvlType.Id cvlValue.Key))
         prop.IsStatic <- true
         prop
 
