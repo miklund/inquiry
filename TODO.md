@@ -39,6 +39,14 @@ v0.3
 
 The purpose of v0.3 is to query the inRiver API for several entities.
 
+```fsharp
+inquiry {
+	for p in pim.Product.all
+	where p.Approved = Some true
+	select p
+} |> pim.Product.query
+```
+
 * Query API
 * Opt-in logging for the code generation
 * Add XML comments for all the fields
@@ -53,6 +61,10 @@ The purpose of v0.3 is to query the inRiver API for several entities.
 
 * Also check if the connection settings from <inRiver.Integration.Properties.Settings> are available
 * Deal with MainPictureId
+
+DOCUMENTATION
+
+Add information on README on how to update an entity, and how to query for entities.
 
 * Write example on
   - How to work with the XML field, query and update it
